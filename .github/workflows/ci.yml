@@ -7,11 +7,14 @@
 # このワークフローは CI のみを担う。デプロイ（CD）は扱わない。
 name: CI
 
-# `main` への push では走らせない（Issue #213）。利用上限を超えたため。2026-10 は、merge のたびに
-# 走る CI が利用分の約 40% を占めた。merge の結果の検査は PR の CI が受け持つ。
-# Release の前など、`main` で検査したいときは workflow_dispatch（gh workflow run ci.yml --ref main）か
-# ci-local.sh で走らせる。詳細は docs/design/ci-config.md D-1 と docs/development.md。
+# `main` への push でも走らせる（Issue #252 により 2026-11-04 訂正）。公開リポジトリは Actions に
+# 利用上限が無い。訂正前は pull_request と手動のみだった（旧 #213 が、非公開の間の利用上限のため
+# push を外していた。2026-10 は、merge のたびに走る CI が利用分の約 40% を占めた）。
+# Release の前など、`main` で手動で検査したいときは workflow_dispatch（gh workflow run ci.yml --ref main）か
+# ci-local.sh でも走らせられる。詳細は docs/design/ci-config.md D-1 と docs/development.md。
 on:
+  push:
+    branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
