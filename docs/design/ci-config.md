@@ -345,8 +345,8 @@ terraform の検査と分離して見えるようにするためである。
    `gh api repos/<owner>/<repo>/branches/main/protection` が 403（`Upgrade to GitHub Pro or make this repository public`）を返す。
    赤い CI のまま merge できる状態は、公開後にブランチ保護が使えるようになるまで続く。`main` への push では CI を走らせなくなった
    （D-1）ので、merge の結果の検査は、PR の CI と、Release 前の `ci-local.sh`・手動実行による。）
-   （Issue #252 により 2026-11-04 追記: 公開に切り替えるとルールセットが使える。Issue #252 で `main` に、force push と削除の禁止、PR の必須（承認 0 件）を入れる。
-   required status checks は設けない（作業者が 1 人で、CI が走らない変更の merge を妨げないため）。D-1 も戻して、`main` への push で CI が走る。）
+   （Issue #252 により 2026-11-04 追記: 公開に切り替えるとルールセットが使える。Issue #252 で `main` に、force push と削除の禁止、PR の必須（承認 0 件）を入れた（ルールセット `protect-main`、bypass なし）。
+   required status checks は設けない（作業者が 1 人で、CI が走らない変更の merge を妨げないため）。D-1 も戻して、`main` への push で CI が走る（merge の push で成功を実測した）。）
 5. **`terraform` ジョブは PR 時点の Terraform 検査の唯一の経路になった**（3.4 の決定 A）。
    実リソースとの差分は `main` への push 後・apply の承認前にしか見えない。この非対称性は
    意図した設計であり、`cd.yml` 側の反映は deployment-pipeline (4.1) の再実行に残っている。
