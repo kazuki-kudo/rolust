@@ -69,7 +69,7 @@ Lambda@Edge は、Basic 認証（[setup.md](setup.md) の「認証の準備」�
 
 ```bash
 # 展開先のルートで実行する
-terraform -chdir=infra output -raw set_ip_allowlist_command    # 実行すべきコマンドを表示する
+terraform -chdir=infra output -raw set_ip_allowlist_command    # 実行すべきコマンドを表示する（下と同じ内容。export 行も含む）
 
 export MSYS_NO_PATHCONV=1                         # Git Bash で '/rolust/ip-allowlist' がパスに変換されるのを防ぐ
 aws ssm put-parameter \

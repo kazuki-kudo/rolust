@@ -31,6 +31,7 @@ output "basic_auth_parameter_name" {
 output "set_basic_auth_command" {
   description = "apply 後に 1 度だけ実行する資格情報の投入コマンド。<user> と <password> を置き換えること。"
   value       = <<-EOT
+    export MSYS_NO_PATHCONV=1    # Git Bash で '/' 始まりの名前がパスに変換されるのを防ぐ（macOS / Linux では無害）
     aws ssm put-parameter \
       --region us-east-1 \
       --name '${aws_ssm_parameter.basic_auth.name}' \
@@ -48,6 +49,7 @@ output "ip_allowlist_parameter_name" {
 output "set_ip_allowlist_command" {
   description = "IP 許可リストを変更するコマンド。--value を許可する IP または CIDR に置き換えること。反映まで最大 5 分かかる。"
   value       = <<-EOT
+    export MSYS_NO_PATHCONV=1    # Git Bash で '/' 始まりの名前がパスに変換されるのを防ぐ（macOS / Linux では無害）
     aws ssm put-parameter \
       --region us-east-1 \
       --name '${aws_ssm_parameter.ip_allowlist.name}' \
@@ -65,6 +67,7 @@ output "allowed_account_ids_parameter_name" {
 output "set_allowed_account_ids_command" {
   description = "許可するアカウント ID を変更するコマンド。--value を、許可するアカウント ID のカンマ区切りに置き換えること（デプロイ先のアカウントも含める）。反映まで最大 5 分かかる。"
   value       = <<-EOT
+    export MSYS_NO_PATHCONV=1    # Git Bash で '/' 始まりの名前がパスに変換されるのを防ぐ（macOS / Linux では無害）
     aws ssm put-parameter \
       --region ${var.region} \
       --name '${aws_ssm_parameter.allowed_account_ids.name}' \

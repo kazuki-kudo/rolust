@@ -10,6 +10,7 @@
 
 ### 変更
 
+- `terraform output` が表示する SSM パラメータの投入コマンド（`set_basic_auth_command`・`set_ip_allowlist_command`・`set_allowed_account_ids_command`）の先頭に、`export MSYS_NO_PATHCONV=1` の行を足した（Issue #259）。Git Bash（Windows）で表示されたコマンドをそのまま実行すると、`/` で始まるパラメータ名が Windows のパスに変換され、`Parameter name must be a fully qualified name` で失敗していた。macOS / Linux では無害。出力文字列だけの変更で、apply しても資源の差分は出ない。手順書（`setup.md` の日英、`access-control.md` の日英、`users.md`）の注記も、実際のエラーに合わせた。
 - 手順書（`docs/guide/operations.md`）のアンインストールの、state 用バケット（`infra/bootstrap/` で作ったもの）を削除する手順を直した（Issue #257）。手順 4 の後に展開先のルートへ戻る `cd ..` が無く、手順 5 の `terraform -chdir=infra/bootstrap …` が `infra/infra/bootstrap` を探して失敗していた。バケット名は `infra/backend.hcl` から読む。`infra/bootstrap/terraform.tfstate` が無い環境（新しい版へ更新したときに持ち越さなかったなど）の削除の道（古い展開先から実行する／`aws s3api delete-bucket`）を足した。更新手順の、`infra/bootstrap/` の state の持ち越しも、見落としにくい書き方に改めた。
 
 ## v0.2.0 - 2026-11-04

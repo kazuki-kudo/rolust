@@ -69,7 +69,7 @@ The format is IPv4 addresses or CIDRs separated by commas (spaces are ignored). 
 
 ```bash
 # Run from the root of the extracted directory
-terraform -chdir=infra output -raw set_ip_allowlist_command    # Prints the command to run
+terraform -chdir=infra output -raw set_ip_allowlist_command    # Prints the command to run (same as below, including the export line)
 
 export MSYS_NO_PATHCONV=1                         # Prevents Git Bash from converting '/rolust/ip-allowlist' into a path
 aws ssm put-parameter \

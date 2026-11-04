@@ -198,7 +198,7 @@ SSM パラメータの**値は Terraform の管理外**です（`lifecycle { ign
 
 ```bash
 # 展開先のルートで実行する
-terraform -chdir=infra output -raw set_basic_auth_command      # 実行すべきコマンドを表示する
+terraform -chdir=infra output -raw set_basic_auth_command      # 実行すべきコマンドを表示する（下と同じ内容。export 行も含む）
 
 export MSYS_NO_PATHCONV=1                         # Git Bash で '/rolust/basic-auth' がパスに変換されるのを防ぐ
 aws ssm put-parameter \
@@ -209,7 +209,7 @@ aws ssm put-parameter \
   --value '<user>:<password>'
 ```
 
-> **Git Bash（Windows）を使っている場合**: `MSYS_NO_PATHCONV=1` を付けないと `/rolust/basic-auth` が Windows のパスに変換され、パラメータが「無い」ように見えて止まります。macOS / Linux では不要です。
+> **Git Bash（Windows）を使っている場合**: `MSYS_NO_PATHCONV=1` を付けないと `/rolust/basic-auth` が Windows のパスに変換され、`ValidationException ... Parameter name must be a fully qualified name` で止まります（`get-parameter` では ParameterNotFound になります）。`terraform output` が表示するコマンドには、この `export` の行が入っています。macOS / Linux では不要です。
 
 Lambda@Edge は資格情報を実行コンテキストに **5 分** キャッシュします（`CACHE_TTL_MS`）。投入直後は反映まで最大 5 分かかります。
 
