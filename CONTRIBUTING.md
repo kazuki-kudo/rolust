@@ -4,7 +4,7 @@ Rolust への貢献を歓迎します。始める前に、この文書を読ん�
 
 ## 流れ
 
-1. **Issue から始める。** 不具合の報告、機能の提案、文書の訂正は、まず GitHub の Issue にします。実装は Issue を単位に進め、ブランチ名・コミットメッセージ・PR に Issue の番号を含めます。**脆弱性だけは Issue に書きません**——[SECURITY.md](SECURITY.md) の経路（GitHub の private vulnerability reporting）で報告してください。
+1. **Issue から始める。** 不具合の報告、機能の提案、文書の訂正は、まず GitHub の Issue にします。実装は Issue を単位に進め、ブランチ名・コミットメッセージ・PR に Issue の番号を含めます。**脆弱性だけは Issue に書きません**——[SECURITY.md](SECURITY.md) の経路（GitHub の private vulnerability reporting）で報告してください。Issue には、不具合の報告と質問のテンプレートがあります。通常の不具合報告と質問には、気づいたときに返事をします。期限はお約束できません（[SECURITY.md](SECURITY.md) の応答期限は、脆弱性だけの約束です。Issue #252 により 2026-11-04 追記）。
 2. **ブランチを切る。** `main` から短命なブランチを切ります。`main` へ直接コミットしません。
 3. **テストを先に書く。** アプリケーションコード（`packages/`）は TDD で書きます。失敗するテストを先に書き、失敗を確かめてから実装します。Terraform・CI 設定・文書は、変更した層ごとに機械的な判定（`terraform validate`、grep など）で確かめます。方針は [docs/development.md](docs/development.md) にあります。
 4. **PR を出す前に検査を走らせる。** `./.github/scripts/ci-local.sh` が、CI の 7 ジョブと同じ検査を同じ版・同じ引数でまとめて走らせます（手元の Node と一致しない版は `SKIP` として出ます）。ジョブ単位・個別のコマンドは [docs/development.md](docs/development.md) にあります。

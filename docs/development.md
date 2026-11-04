@@ -57,9 +57,9 @@ CI（`.github/workflows/ci.yml`）と同じ検査は、**まとめて手元で�
 
 ### CI が走る時と、Release の前
 
-CI は、`main` 向けの PR の作成・追加 push と、手動実行で走ります。**`main` への push（merge）では走りません**（Issue #213。GitHub Actions の利用上限のため。2026-10 は `main` への push の CI が利用分の約 40% を占めた）。したがって、merge の結果の検査は PR の CI が受け持ちます。
+CI は、`main` 向けの PR の作成・追加 push、`main` への push（merge）、手動実行で走ります（Issue #252 により 2026-11-04 訂正。訂正前は、`main` への push では走りませんでした。非公開の間の GitHub Actions の利用上限のためで、旧 #213 の決定です）。merge の結果の検査は、`main` への push の CI が受け持ちます。
 
-**Release のタグを打つ前に**、`main` の最新で検査を走らせてください。どちらでも構いません。
+**Release のタグを打つ前に**、`main` の最新の CI が緑であることを確かめ、手元でも検査を走らせてください。手元と GitHub 上のどちらでも構いません。
 
 ```bash
 git switch main && git pull --ff-only
@@ -69,7 +69,7 @@ gh workflow run ci.yml --ref main             # または GitHub 上で。結果
 
 Release の流れ（`CHANGELOG.md` の見出しを版に改める PR → 検査 → タグ）は [CONTRIBUTING.md](../CONTRIBUTING.md) の「Release を出す（メンテナー）」にあります。タグを打つ前に、`CHANGELOG.md` にその版の節があることを確かめてください（無ければ `release.yml` の検査が落ちます）。手元では `./.github/scripts/changelog-section.sh vX.Y.Z` で取り出せます。
 
-公開（Issue #183）後は、利用上限の制約がなくなります。そのときに `push` のトリガを戻すかを決め直します（`docs/design/ci-config.md` D-1）。
+公開したリポジトリは Actions に利用上限が無いので、`push` のトリガを戻しました（Issue #252。`docs/design/ci-config.md` D-1）。
 
 ## テストの方針
 

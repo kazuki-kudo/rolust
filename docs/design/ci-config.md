@@ -5,7 +5,8 @@
 > - **位置づけ**: 本書は Rolust の CI（`.github/workflows/ci.yml`）の決定事項（D-1〜D-6）・ジョブ構成・ゲートの記録である。`ci.yml` の冒頭のコメントは本書を指す。
 > - **複写元**: `aidlc/spaces/default/intents/260728-rolust-iam-trust/construction/ci-pipeline/ci-config.md`（2026-08-29 最終更新、2026-11-01 複写）。複写元は凍結したままで、以後の訂正は本書にだけ入れる。
 > - **照合の範囲**: **CI の起動条件（トリガ）だけ**。D-1、§ ジョブ構成 の図と Text fallback の起動の記述、§ 注意点 4（ブランチ保護）を、`ci.yml`・`gh api`（2026-11-01 の実測）・`CLAUDE.md` と突き合わせた。ジョブの数・構成、ゲートの閾値、CD に関する記述は**未照合**で、凍結時のままである。
-> - **訂正の全体像**: `main` への push では CI を走らせない（`pull_request: main` と手動実行 `workflow_dispatch` のみ）。理由は GitHub Actions の利用上限（Issue #213）。あわせて、D-1 の根拠にあった squash-merge を、実運用の merge コミットに直した。
+> - **訂正の全体像**（Issue #213 の時点。Issue #252 で戻した。次の項を参照）: `main` への push では CI を走らせない（`pull_request: main` と手動実行 `workflow_dispatch` のみ）。理由は GitHub Actions の利用上限（Issue #213）。あわせて、D-1 の根拠にあった squash-merge を、実運用の merge コミットに直した。
+> - **トリガを戻した**（Issue #252 により 2026-11-04 追記）: 公開に伴い、`main` への push でも CI を走らせる（`push: main`・`pull_request: main`・`workflow_dispatch`）。D-1・§ ジョブ構成 の図と Text fallback・§ 注意点 4 の該当箇所に、同じ来歴を付けた。
 > - **未決**: なし（下の「既知の古い記述（未訂正）」は、今回の範囲外として残した）。
 > - **Node のマトリクスの訂正**（Issue #238 により 2026-11-03 追記）: Lambda と Lambda@Edge の実行環境を `nodejs24.x` に上げたため、`node` ジョブのマトリクスを 22 / 24 から 24 のみに絞った。D-5・§ ジョブ構成の図と Text fallback・§ Node の下限を別ジョブにした理由 の該当箇所に、同じ来歴を付けた。この時点では下限 20.19 の `build-floor`（D-6）は変えていなかった（次の注記で廃止した）。
 > - **`build-floor` の廃止**（Issue #248 により 2026-11-03 追記）: 実行環境・CI・Release が Node 24 にそろったため、Node の下限も 24 に上げ（`package.json` の `engines`、`docs/guide/setup.md`）、下限を別に確かめる `build-floor` ジョブ（D-6）を廃止した。D-6・§ ジョブ構成の図と Text fallback・§ Node の下限を別ジョブにした理由・§ 未決事項 1 の該当箇所に、同じ来歴を付けた。ID は変えていない。
@@ -67,7 +68,7 @@ CI の都合でプロダクトのセットアップ手順が重くなるのは�
 
 | # | 決定 | 根拠 |
 |---|---|---|
-| D-1 | トリガは `pull_request: main` と手動実行（`workflow_dispatch`）。`main` への push では走らせない（Issue #213 により 2026-11-01 訂正。訂正前は `push: main` と `pull_request: main`。理由: GitHub Actions の利用上限。2026-10 は約 2,027 分で、`main` への push の CI が約 822 分を占めた） | `org.md` § Way of Working が trunk-based・短命ブランチを定める。リポジトリのブランチは `main` のみ。PR は merge コミットで取り込む（Issue #213 により 2026-11-01 訂正。訂正前は「main へ squash-merge」。実運用は `CLAUDE.md` § 開発フロー のとおり merge コミット）。Release を出す前の検査は `ci-local.sh` か手動実行で行う（`docs/development.md`） |
+| D-1 | トリガは `push: main`・`pull_request: main`・手動実行（`workflow_dispatch`）（Issue #252 により 2026-11-04 訂正。訂正前は `pull_request: main` と手動実行のみで、`main` への push では走らせなかった。公開リポジトリは Actions に利用上限が無いので戻した。Issue #213 により 2026-11-01 に push を外した理由は、非公開の間の GitHub Actions の利用上限である。2026-10 は約 2,027 分で、`main` への push の CI が約 822 分を占めた。さらに前の記述も `push: main` と `pull_request: main` だった） | `org.md` § Way of Working が trunk-based・短命ブランチを定める。リポジトリのブランチは `main` のみ。PR は merge コミットで取り込む（Issue #213 により 2026-11-01 訂正。訂正前は「main へ squash-merge」。実運用は `CLAUDE.md` § 開発フロー のとおり merge コミット）。Release を出す前の検査は `ci-local.sh` か手動実行で行う（`docs/development.md`） |
 | D-2 | アーティファクトリポジトリ（ECR / CodeArtifact / S3）を導入しない | `infra/lambda.tf` L27 と `edge-auth.tf` L13 が `data "archive_file"` で `packages/*/dist` を apply 時にローカル ZIP 化する。レジストリを挟むと NFR-4 に手順が増える |
 | D-3 | 統合テストを CI の既定経路から除外 | 実 IAM の信頼ポリシーを実際に書き換える（README § テストの方針）。`project.md`「既存の実資源を書き換える検証は退避・復元・一致確認を必須にする」に照らし、PR ごとの自動実行は取れない。`vitest.config.ts` が既に `*.integration.test.ts` を除外している |
 | D-4 | CD を本ステージの範囲外とする | コンパイル済みステージグラフに deployment-pipeline (4.1) / deployment-execution (4.3) が infra スコープの EXECUTE として存在する |
@@ -79,7 +80,7 @@ D-6 は上流の指示ではなく本ステージの追加判断だった。廃�
 ## ジョブ構成
 
 ```
-pull_request: main / workflow_dispatch（Issue #213 により 2026-11-01 訂正。訂正前は push: main / pull_request: main）
+push: main / pull_request: main / workflow_dispatch（Issue #213 により 2026-11-01 に push: main を外し、Issue #252 により 2026-11-04 に戻した）
   |
   +-- node (matrix: 24)      lint -> typecheck -> test:coverage -> build（Issue #238 により 2026-11-03 訂正。訂正前は matrix: 22, 24）
   |                          （Issue #248 により 2026-11-03 訂正。訂正前は build-floor (20.19) が並んでいた）
@@ -97,8 +98,8 @@ pull_request: main / workflow_dispatch（Issue #213 により 2026-11-01 訂正�
                              （本番デプロイを止める側のコードの自己検査）
 ```
 
-<!-- Text fallback: main 向け PR を契機に、または手動実行（workflow_dispatch）で、6 つのジョブが並列に走る
-     （Issue #213 により 2026-11-01 訂正。訂正前は「push または main 向け PR を契機に」。ジョブの数は未照合）。
+<!-- Text fallback: main への push、main 向け PR、または手動実行（workflow_dispatch）を契機に、6 つのジョブが並列に走る
+     （Issue #213 により 2026-11-01 訂正し、Issue #252 により 2026-11-04 に戻した。#213 の訂正前は「push または main 向け PR を契機に」。ジョブの数は未照合）。
      node ジョブは Node 24 で lint・typecheck・カバレッジ付きテスト・
      ビルドを順に実行する（Issue #238 により 2026-11-03 訂正。訂正前は Node 22 と 24 のマトリクス）。訂正前は build-floor が Node 20.19 で依存導入とビルドのみを行っていた（Issue #248 により 2026-11-03 廃止）。
      terraform は書式検査（-recursive）・バックエンドなし初期化・検証を、infra と
@@ -342,8 +343,10 @@ terraform の検査と分離して見えるようにするためである。
    別途必要になる。ジョブ名は再実行でも変えていないため、`quality-gates.md` § ブランチ保護 の
    対象リストはそのまま使える。（Issue #213 により 2026-11-01 追記: ブランチ保護・ルールセットは、現在の契約（private・Free）では使えない。
    `gh api repos/<owner>/<repo>/branches/main/protection` が 403（`Upgrade to GitHub Pro or make this repository public`）を返す。
-   赤い CI のまま merge できる状態は、公開（Issue #183）後にブランチ保護が使えるようになるまで続く。`main` への push では CI を走らせなくなった
+   赤い CI のまま merge できる状態は、公開後にブランチ保護が使えるようになるまで続く。`main` への push では CI を走らせなくなった
    （D-1）ので、merge の結果の検査は、PR の CI と、Release 前の `ci-local.sh`・手動実行による。）
+   （Issue #252 により 2026-11-04 追記: 公開に切り替えるとルールセットが使える。Issue #252 で `main` に、force push と削除の禁止、PR の必須（承認 0 件）を入れる。
+   required status checks は設けない（作業者が 1 人で、CI が走らない変更の merge を妨げないため）。D-1 も戻して、`main` への push で CI が走る。）
 5. **`terraform` ジョブは PR 時点の Terraform 検査の唯一の経路になった**（3.4 の決定 A）。
    実リソースとの差分は `main` への push 後・apply の承認前にしか見えない。この非対称性は
    意図した設計であり、`cd.yml` 側の反映は deployment-pipeline (4.1) の再実行に残っている。
