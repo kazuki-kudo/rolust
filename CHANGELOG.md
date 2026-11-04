@@ -8,6 +8,8 @@
 
 ## 未リリース
 
+## v0.2.1 - 2026-11-04
+
 ### 変更
 
 - `terraform output` が表示する SSM パラメータの投入コマンド（`set_basic_auth_command`・`set_ip_allowlist_command`・`set_allowed_account_ids_command`）の先頭に、`export MSYS_NO_PATHCONV=1` の行を足した（Issue #259）。Git Bash（Windows）で表示されたコマンドをそのまま実行すると、`/` で始まるパラメータ名が Windows のパスに変換され、`Parameter name must be a fully qualified name` で失敗していた。macOS / Linux では無害。出力文字列だけの変更で、apply しても資源の差分は出ない。手順書（`setup.md` の日英、`access-control.md` の日英、`users.md`）の注記も、実際のエラーに合わせた。
