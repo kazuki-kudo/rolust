@@ -1,0 +1,92 @@
+title = "Rolust 保護値の検査（Issue #177）"
+
+# 守る対象（アカウント ID・CloudFront の DNS 名・IP・メール）の「形」を検出する。
+# 実値の一覧は持たない。許可するプレースホルダの形だけを列挙する（プレースホルダの許可リスト方式）。
+# 設計: docs/superpowers/specs/2026-10-18-protected-values-guard-design.md
+#
+# 注意: RE2 には先読みも後方参照も無い。区切りの文字を一致に含めると、区切りが 1 文字だけの
+# 隣接する値（カンマ区切りの IP の一覧など）の 2 つ目を取り逃がす。そのためゼロ幅の \b を使う。
+# \b は ASCII の語（英数字とアンダースコア）の境界で、日本語は境界になる。アンダースコアは
+# 語の一部なので、(?:\b|_) で「アンダースコアに続く値」も拾う。
+
+[[rules]]
+id = "protected-account-id"
+description = "AWS アカウント ID に見える 12 桁の数字"
+regex = '''(?:\b|_)([0-9]{12})(?:\b|_)'''
+secretGroup = 1
+[[rules.allowlists]]
+regexTarget = "secret"
+regexes = [
+  # 4 桁の同じ数字を 3 つ並べた形（111122223333 など。全桁同一を含む）
+  '''^(?:0000|1111|2222|3333|4444|5555|6666|7777|8888|9999){3}$''',
+  # AWS の文書の例
+  '''^123456789012$''',
+]
+
+[[rules]]
+id = "protected-cloudfront"
+description = "CloudFront の DNS 名"
+regex = '''[A-Za-z0-9-]+\.cloudfront\.net'''
+[[rules.allowlists]]
+regexTarget = "match"
+regexes = ['''^(?:dXXXXXXXXXXXXX|d123)\.cloudfront\.net$''']
+
+[[rules]]
+id = "protected-ipv4"
+description = "文書用・ループバック・0.0.0.0 以外の IPv4"
+regex = '''(?:\b|_)((?:(?:25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})\.){3}(?:25[0-5]|2[0-4][0-9]|1?[0-9]{1,2}))(?:\b|_)'''
+secretGroup = 1
+[[rules.allowlists]]
+regexTarget = "secret"
+# RFC 5737 の文書用の範囲（192.0.2.0/24・198.51.100.0/24・203.0.113.0/24）、ループバック、0.0.0.0
+regexes = ['''^(?:(?:192\.0\.2|198\.51\.100|203\.0\.113)\.[0-9]+|127(?:\.[0-9]+){3}|0\.0\.0\.0)$''']
+[[rules.allowlists]]
+# CIDR の境界値と不正な入力を検証するテスト。文書用の範囲では表せない（D-7）。このルールだけを許可する。
+paths = ['''(?:^|/)packages/edge-auth/src/ip-allowlist\.test\.ts$''']
+
+[[rules]]
+id = "protected-email"
+description = "許可したドメイン以外のメールアドレス"
+regex = '''[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}'''
+[[rules.allowlists]]
+regexTarget = "match"
+regexes = [
+  '''@(?:[A-Za-z0-9-]+\.)*example\.(?:com|org|net)$''',
+  '''@users\.noreply\.github\.com$''',
+  '''^noreply@anthropic\.com$''',
+  '''^git@github\.com$''',
+]
+
+# 区切りの `_` を前の値と共有する値の取り逃がしを補う（Issue #182。#177 で据え置いた事項の実測と修正）。
+# 上のルールは末尾の `(?:\b|_)` で `_` を消費するので、`<ダミー>_<実値>` の実値は、左の区切りを失って
+# 一致しない（RE2 には先読みが無く、区切りをゼロ幅にできない）。`_` で始まる場合だけを拾う別のルールで、
+# 1 つおきに取り逃がす穴を塞ぐ。許可する形は元のルールと同じ。
+[[rules]]
+id = "protected-account-id-underscore"
+description = "直前の値と区切りの _ を共有する、AWS アカウント ID に見える 12 桁の数字"
+regex = '''_([0-9]{12})(?:\b|_)'''
+secretGroup = 1
+[[rules.allowlists]]
+regexTarget = "secret"
+regexes = [
+  '''^(?:0000|1111|2222|3333|4444|5555|6666|7777|8888|9999){3}$''',
+  '''^123456789012$''',
+]
+
+[[rules]]
+id = "protected-ipv4-underscore"
+description = "直前の値と区切りの _ を共有する、文書用・ループバック・0.0.0.0 以外の IPv4"
+regex = '''_((?:(?:25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})\.){3}(?:25[0-5]|2[0-4][0-9]|1?[0-9]{1,2}))(?:\b|_)'''
+secretGroup = 1
+[[rules.allowlists]]
+regexTarget = "secret"
+regexes = ['''^(?:(?:192\.0\.2|198\.51\.100|203\.0\.113)\.[0-9]+|127(?:\.[0-9]+){3}|0\.0\.0\.0)$''']
+[[rules.allowlists]]
+paths = ['''(?:^|/)packages/edge-auth/src/ip-allowlist\.test\.ts$''']
+
+[allowlist]
+# 除外するのは .git/ と package-lock.json だけ。plan も含めて木の全体を走査する（Issue #182。旧リポジトリでは aidlc/ と過去の plan を除いていた）。
+paths = [
+  '''(?:^|/)\.git/''',
+  '''(?:^|/)package-lock\.json$''',
+]

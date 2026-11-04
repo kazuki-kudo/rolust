@@ -1,0 +1,25 @@
+{
+  "name": "@rolust/web",
+  "version": "0.1.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "description": "Rolust の管理画面（React + AWS Cloudscape Design System / SPA）",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@cloudscape-design/components": "^3.0.1340",
+    "@cloudscape-design/design-tokens": "^3.0.105",
+    "@cloudscape-design/global-styles": "^1.0.65",
+    "@rolust/core": "0.1.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4"
+  }
+}

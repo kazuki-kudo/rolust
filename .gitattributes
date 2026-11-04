@@ -1,0 +1,4 @@
+# 改行コードは LF に固定する（Issue #235）。
+# autocrlf に頼らず、リポジトリ側で決める。Write・Edit・sed -i などで CRLF と LF が入れ替わっても、
+# Git が index に入れる時点で LF にそろえるので、改行だけの差分は出ない。
+* text=auto eol=lf

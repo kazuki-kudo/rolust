@@ -1,0 +1,103 @@
+# Rolust の Release。
+#
+# 設計: docs/superpowers/specs/2026-10-13-user-deploy-release-design.md 3.2
+#
+# タグ（vX.Y.Z）の push で、tarball と SHA256SUMS を作り、展開して検査し、通ったら Release に添付する。
+# このワークフローは AWS の資格情報を持たず、反映（terraform apply）をしない（docs/design/cd-config.md D-7）。
+# 権限は、Release を作るジョブの contents: write だけである。そのトークンは、checkout の
+# persist-credentials: false で .git/config に残さず、Release を作る step の GH_TOKEN だけが受け取る。
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+env:
+  # ci.yml の TERRAFORM_VERSION と揃える（infra/versions.tf の required_version が >= 1.10.0）。
+  TERRAFORM_VERSION: "1.10.5"
+
+jobs:
+  release:
+    name: tarball を作って Release に添付する
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          # タグのコミットが main の祖先かを確かめるため、履歴を取る。
+          fetch-depth: 0
+          # contents: write のトークンを .git/config に残さない。残すと、npm ci が走らせる依存の install script が
+          # 読めてしまう。Release を作る step だけが、GH_TOKEN で明示的に受け取る。
+          persist-credentials: false
+
+      - name: タグの形式
+        run: |
+          if ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
+            echo "タグの形式が違う: $TAG（例: v1.2.3、v0.0.0-rc.1）" >&2
+            exit 1
+          fi
+
+      # prerelease（- を含む）は、マージ前のブランチから実測のために打つので対象外。
+      - name: 本番の版は main に含まれていること
+        run: |
+          if [[ "$TAG" != *-* ]]; then
+            # main は checkout の fetch-depth: 0 で取得済み。persist-credentials: false なので、ここで fetch すると
+            # 非公開リポジトリでは認証できず落ちる（v0.1.0 のタグで実際に落ちた）。
+            if ! git rev-parse --verify -q origin/main >/dev/null; then
+              echo "origin/main が取得できていない。" >&2
+              exit 1
+            fi
+            if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+              echo "$TAG のコミットが main に含まれていない。main に merge してからタグを打つ。" >&2
+              exit 1
+            fi
+          fi
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: 依存を入れてビルドする
+        run: |
+          npm ci
+          npm run build
+
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - name: tarball と SHA256SUMS を作る
+        run: ./.github/scripts/build-release.sh "$TAG" release-out
+
+      - name: 展開して検査する（通らなければ Release を作らない）
+        run: ./.github/scripts/check-release.sh "release-out/rolust-${TAG}.tar.gz"
+
+      - name: Release を作る
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          flags=()
+          if [[ "$TAG" == *-* ]]; then
+            flags+=(--prerelease)
+          fi
+          # CHANGELOG.md のその版の節を、本文の先頭に置く（自動生成のノートはその後ろに続く。Issue #240）。
+          # 本番の版は、check-release.sh が節の存在を確かめ済みである。prerelease は節が無くてもよい。
+          if ./.github/scripts/changelog-section.sh "$TAG" CHANGELOG.md > release-out/release-notes.md; then
+            flags+=(--notes-file release-out/release-notes.md)
+          elif [[ "$TAG" != *-* ]]; then
+            echo "CHANGELOG.md から $TAG の節を取り出せなかった。" >&2
+            exit 1
+          fi
+          gh release create "$TAG" \
+            "release-out/rolust-${TAG}.tar.gz" release-out/SHA256SUMS \
+            --title "$TAG" \
+            --generate-notes \
+            "${flags[@]}"

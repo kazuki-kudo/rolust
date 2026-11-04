@@ -1,0 +1,43 @@
+{
+  "name": "rolust",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AWS IAM ロールの信頼ポリシーを、申請とレビューを経て反映する管理ツール",
+  "license": "Apache-2.0",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "workspaces": [
+    "packages/core",
+    "packages/api",
+    "packages/edge-auth",
+    "packages/web"
+  ],
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc -p packages/core --noEmit && tsc -p packages/api --noEmit && tsc -p packages/edge-auth --noEmit && tsc -p packages/web --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "build": "npm run build --workspaces --if-present"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^26.1.2",
+    "@vitejs/plugin-react": "^6.0.5",
+    "@vitest/coverage-v8": "4.1.12",
+    "aws-sdk-client-mock": "^4.1.0",
+    "esbuild": "^0.28.1",
+    "eslint": "^10.8.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.8.0",
+    "jsdom": "^30.0.1",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.65.0",
+    "vite": "^8.2.4",
+    "vitest": "^4.1.12"
+  }
+}

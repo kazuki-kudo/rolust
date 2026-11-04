@@ -1,0 +1,546 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.10.5",
+  "resource_changes": [
+    {
+      "address": "aws_iam_role_policy.diff_iam_read",
+      "mode": "managed",
+      "type": "aws_iam_role_policy",
+      "name": "diff_iam_read",
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "before": {
+          "policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"ReadTrustPolicy\",\"Effect\":\"Allow\",\"Action\":\"iam:GetRole\",\"Resource\":\"arn:aws:iam::111122223333:role/*\",\"Condition\":{\"StringEquals\":{\"aws:ResourceTag/rolust:managed\":\"true\"}}}]}"
+        },
+        "after": {
+          "policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"ReadTrustPolicy\",\"Effect\":\"Allow\",\"Action\":\"iam:GetRole\",\"Resource\":\"arn:aws:iam::111122223333:role/*\",\"Condition\":{\"StringEquals\":{\"aws:ResourceTag/rolust:managed\":\"true\"}}}]}"
+        },
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "aws_iam_role_policy.apply_iam_write",
+      "mode": "managed",
+      "type": "aws_iam_role_policy",
+      "name": "apply_iam_write",
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "before": {
+          "policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"ReadTrustPolicy\",\"Effect\":\"Allow\",\"Action\":\"iam:GetRole\",\"Resource\":\"arn:aws:iam::111122223333:role/*\",\"Condition\":{\"StringEquals\":{\"aws:ResourceTag/rolust:managed\":\"true\"}}},{\"Sid\":\"UpdateTrustPolicy\",\"Effect\":\"Allow\",\"Action\":\"iam:UpdateAssumeRolePolicy\",\"Resource\":\"arn:aws:iam::111122223333:role/*\",\"Condition\":{\"StringEquals\":{\"aws:ResourceTag/rolust:managed\":\"true\"}}},{\"Sid\":\"DenySelfEscalation\",\"Effect\":\"Deny\",\"Action\":\"iam:UpdateAssumeRolePolicy\",\"Resource\":[\"arn:aws:iam::111122223333:role/rolust-crud\",\"arn:aws:iam::111122223333:role/rolust-diff\",\"arn:aws:iam::111122223333:role/rolust-apply\",\"arn:aws:iam::111122223333:role/rolust-edge-auth\",\"arn:aws:iam::111122223333:role/rolust-apigw-logs\"]}]}"
+        },
+        "after": {
+          "policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"ReadTrustPolicy\",\"Effect\":\"Allow\",\"Action\":\"iam:GetRole\",\"Resource\":\"arn:aws:iam::111122223333:role/*\",\"Condition\":{\"StringEquals\":{\"aws:ResourceTag/rolust:managed\":\"true\"}}},{\"Sid\":\"UpdateTrustPolicy\",\"Effect\":\"Allow\",\"Action\":\"iam:UpdateAssumeRolePolicy\",\"Resource\":\"arn:aws:iam::111122223333:role/*\",\"Condition\":{\"StringEquals\":{\"aws:ResourceTag/rolust:managed\":\"true\"}}},{\"Sid\":\"DenySelfEscalation\",\"Effect\":\"Deny\",\"Action\":\"iam:UpdateAssumeRolePolicy\",\"Resource\":[\"arn:aws:iam::111122223333:role/rolust-crud\",\"arn:aws:iam::111122223333:role/rolust-diff\",\"arn:aws:iam::111122223333:role/rolust-apply\",\"arn:aws:iam::111122223333:role/rolust-edge-auth\",\"arn:aws:iam::111122223333:role/rolust-apigw-logs\"]}]}"
+        },
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "aws_iam_role_policy.crud_iam_read_tags",
+      "mode": "managed",
+      "type": "aws_iam_role_policy",
+      "name": "crud_iam_read_tags",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"ReadRoleTagsForRegistrationCheck\",\"Effect\":\"Allow\",\"Action\":\"iam:ListRoleTags\",\"Resource\":\"arn:aws:iam::111122223333:role/*\"}]}"
+        },
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "aws_iam_role_policy.crud_iam_read_trust",
+      "mode": "managed",
+      "type": "aws_iam_role_policy",
+      "name": "crud_iam_read_trust",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"ReadTrustPolicyForLinkImport\",\"Effect\":\"Allow\",\"Action\":\"iam:GetRole\",\"Resource\":\"arn:aws:iam::111122223333:role/*\",\"Condition\":{\"StringEquals\":{\"aws:ResourceTag/rolust:managed\":\"true\"}}}]}"
+        },
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "aws_iam_role_policy.lambda_dynamodb[\"crud\"]",
+      "mode": "managed",
+      "type": "aws_iam_role_policy",
+      "name": "lambda_dynamodb",
+      "index": "crud",
+      "change": {
+        "actions": [
+          "no-op"
+        ],
+        "before": {
+          "policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"RolustTable\",\"Effect\":\"Allow\",\"Action\":[\"dynamodb:GetItem\",\"dynamodb:PutItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\",\"dynamodb:BatchGetItem\"],\"Resource\":[\"arn:aws:dynamodb:ap-northeast-1:111122223333:table/rolust\",\"arn:aws:dynamodb:ap-northeast-1:111122223333:table/rolust/index/*\"]}]}"
+        },
+        "after": {
+          "policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"RolustTable\",\"Effect\":\"Allow\",\"Action\":[\"dynamodb:GetItem\",\"dynamodb:PutItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\",\"dynamodb:BatchGetItem\"],\"Resource\":[\"arn:aws:dynamodb:ap-northeast-1:111122223333:table/rolust\",\"arn:aws:dynamodb:ap-northeast-1:111122223333:table/rolust/index/*\"]}]}"
+        },
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "aws_cloudfront_distribution.rolust",
+      "mode": "managed",
+      "type": "aws_cloudfront_distribution",
+      "name": "rolust",
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "before": {},
+        "after": {
+          "default_cache_behavior": [
+            {
+              "target_origin_id": "s3-web",
+              "viewer_protocol_policy": "redirect-to-https",
+              "lambda_function_association": [
+                {
+                  "event_type": "viewer-request",
+                  "lambda_arn": "arn:aws:lambda:us-east-1:111122223333:function:rolust-edge-auth:3",
+                  "include_body": false
+                }
+              ]
+            }
+          ],
+          "ordered_cache_behavior": [
+            {
+              "path_pattern": "/api/*",
+              "target_origin_id": "api-gw",
+              "lambda_function_association": [
+                {
+                  "event_type": "viewer-request",
+                  "lambda_arn": "arn:aws:lambda:us-east-1:111122223333:function:rolust-edge-auth:3",
+                  "include_body": false
+                }
+              ]
+            }
+          ],
+          "custom_error_response": [
+            {
+              "error_code": 403,
+              "response_code": 200,
+              "response_page_path": "/index.html",
+              "error_caching_min_ttl": 0
+            }
+          ],
+          "origin": [
+            {
+              "origin_id": "s3-spa",
+              "domain_name": "rolust-web-000000000000.s3.ap-northeast-1.amazonaws.com",
+              "custom_header": []
+            },
+            {
+              "origin_id": "api-gateway",
+              "domain_name": "abc123.execute-api.ap-northeast-1.amazonaws.com",
+              "custom_header": [
+                {
+                  "name": "x-api-key",
+                  "value": "dummy-not-a-secret"
+                }
+              ]
+            }
+          ]
+        },
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "aws_s3_bucket_public_access_block.web",
+      "mode": "managed",
+      "type": "aws_s3_bucket_public_access_block",
+      "name": "web",
+      "change": {
+        "actions": [
+          "no-op"
+        ],
+        "before": {
+          "block_public_acls": true,
+          "block_public_policy": true,
+          "ignore_public_acls": true,
+          "restrict_public_buckets": true
+        },
+        "after": {
+          "block_public_acls": true,
+          "block_public_policy": true,
+          "ignore_public_acls": true,
+          "restrict_public_buckets": true
+        },
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "aws_ssm_parameter.basic_auth",
+      "mode": "managed",
+      "type": "aws_ssm_parameter",
+      "name": "basic_auth",
+      "change": {
+        "actions": [
+          "no-op"
+        ],
+        "before": {
+          "value": "REPLACE_ME"
+        },
+        "after": {
+          "value": "REPLACE_ME"
+        },
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "aws_lambda_function.api[\"crud\"]",
+      "mode": "managed",
+      "type": "aws_lambda_function",
+      "name": "api",
+      "index": "crud",
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "before": {
+          "source_code_hash": "aaa"
+        },
+        "after": {
+          "source_code_hash": "bbb"
+        },
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "aws_iam_role.lambda[\"crud\"]",
+      "mode": "managed",
+      "type": "aws_iam_role",
+      "name": "lambda",
+      "index": "crud",
+      "change": {
+        "actions": [
+          "no-op"
+        ],
+        "before": {
+          "name": "rolust-crud",
+          "path": "/",
+          "arn": "arn:aws:iam::111122223333:role/rolust-crud"
+        },
+        "after": {
+          "name": "rolust-crud",
+          "path": "/",
+          "arn": "arn:aws:iam::111122223333:role/rolust-crud"
+        },
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "aws_iam_role.lambda[\"diff\"]",
+      "mode": "managed",
+      "type": "aws_iam_role",
+      "name": "lambda",
+      "index": "diff",
+      "change": {
+        "actions": [
+          "no-op"
+        ],
+        "before": {
+          "name": "rolust-diff",
+          "path": "/",
+          "arn": "arn:aws:iam::111122223333:role/rolust-diff"
+        },
+        "after": {
+          "name": "rolust-diff",
+          "path": "/",
+          "arn": "arn:aws:iam::111122223333:role/rolust-diff"
+        },
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "aws_iam_role.lambda[\"apply\"]",
+      "mode": "managed",
+      "type": "aws_iam_role",
+      "name": "lambda",
+      "index": "apply",
+      "change": {
+        "actions": [
+          "no-op"
+        ],
+        "before": {
+          "name": "rolust-apply",
+          "path": "/",
+          "arn": "arn:aws:iam::111122223333:role/rolust-apply"
+        },
+        "after": {
+          "name": "rolust-apply",
+          "path": "/",
+          "arn": "arn:aws:iam::111122223333:role/rolust-apply"
+        },
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "aws_iam_role.edge_auth",
+      "mode": "managed",
+      "type": "aws_iam_role",
+      "name": "edge_auth",
+      "change": {
+        "actions": [
+          "no-op"
+        ],
+        "before": {
+          "name": "rolust-edge-auth",
+          "path": "/",
+          "arn": "arn:aws:iam::111122223333:role/rolust-edge-auth"
+        },
+        "after": {
+          "name": "rolust-edge-auth",
+          "path": "/",
+          "arn": "arn:aws:iam::111122223333:role/rolust-edge-auth"
+        },
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "aws_iam_role.apigw_logs",
+      "mode": "managed",
+      "type": "aws_iam_role",
+      "name": "apigw_logs",
+      "change": {
+        "actions": [
+          "no-op"
+        ],
+        "before": {
+          "name": "rolust-apigw-logs",
+          "path": "/",
+          "arn": "arn:aws:iam::111122223333:role/rolust-apigw-logs"
+        },
+        "after": {
+          "name": "rolust-apigw-logs",
+          "path": "/",
+          "arn": "arn:aws:iam::111122223333:role/rolust-apigw-logs"
+        },
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "aws_ssm_parameter.ip_allowlist",
+      "mode": "managed",
+      "type": "aws_ssm_parameter",
+      "name": "ip_allowlist",
+      "change": {
+        "actions": [
+          "no-op"
+        ],
+        "before": {
+          "value": "0.0.0.0/0"
+        },
+        "after": {
+          "value": "0.0.0.0/0"
+        },
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "aws_ssm_parameter.allowed_account_ids",
+      "mode": "managed",
+      "type": "aws_ssm_parameter",
+      "name": "allowed_account_ids",
+      "change": {
+        "actions": [
+          "no-op"
+        ],
+        "before": {
+          "value": "111122223333"
+        },
+        "after": {
+          "value": "111122223333"
+        },
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "aws_api_gateway_method.proxy",
+      "mode": "managed",
+      "type": "aws_api_gateway_method",
+      "name": "proxy",
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "before": {
+          "api_key_required": false
+        },
+        "after": {
+          "api_key_required": true
+        },
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "aws_api_gateway_method.leaf[\"diff\"]",
+      "mode": "managed",
+      "type": "aws_api_gateway_method",
+      "name": "leaf",
+      "index": "diff",
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "before": {
+          "api_key_required": false
+        },
+        "after": {
+          "api_key_required": true
+        },
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "aws_api_gateway_method.leaf[\"apply\"]",
+      "mode": "managed",
+      "type": "aws_api_gateway_method",
+      "name": "leaf",
+      "index": "apply",
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "before": {
+          "api_key_required": false
+        },
+        "after": {
+          "api_key_required": true
+        },
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "aws_api_gateway_method.leaf[\"drift\"]",
+      "mode": "managed",
+      "type": "aws_api_gateway_method",
+      "name": "leaf",
+      "index": "drift",
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "before": {
+          "api_key_required": false
+        },
+        "after": {
+          "api_key_required": true
+        },
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "aws_api_gateway_method.drift_child[\"restore\"]",
+      "mode": "managed",
+      "type": "aws_api_gateway_method",
+      "name": "drift_child",
+      "index": "restore",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "api_key_required": true
+        },
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "aws_api_gateway_method.drift_child[\"adopt\"]",
+      "mode": "managed",
+      "type": "aws_api_gateway_method",
+      "name": "drift_child",
+      "index": "adopt",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "api_key_required": true
+        },
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "aws_iam_role_policy.crud_assume_target_reader",
+      "mode": "managed",
+      "type": "aws_iam_role_policy",
+      "name": "crud_assume_target_reader",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"AssumeTargetReader\",\"Effect\":\"Allow\",\"Action\":\"sts:AssumeRole\",\"Resource\":\"arn:aws:iam::*:role/RolustTrustPolicyReader\"}]}",
+          "role": "rolust-crud-exec"
+        },
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "aws_iam_role_policy.diff_assume_target_reader",
+      "mode": "managed",
+      "type": "aws_iam_role_policy",
+      "name": "diff_assume_target_reader",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"AssumeTargetReader\",\"Effect\":\"Allow\",\"Action\":\"sts:AssumeRole\",\"Resource\":\"arn:aws:iam::*:role/RolustTrustPolicyReader\"}]}",
+          "role": "rolust-diff-exec"
+        },
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "aws_iam_role_policy.apply_assume_target_manager",
+      "mode": "managed",
+      "type": "aws_iam_role_policy",
+      "name": "apply_assume_target_manager",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"AssumeTargetManager\",\"Effect\":\"Allow\",\"Action\":\"sts:AssumeRole\",\"Resource\":\"arn:aws:iam::*:role/RolustTrustPolicyManager\"}]}",
+          "role": "rolust-apply-exec"
+        },
+        "after_unknown": {}
+      }
+    }
+  ],
+  "variables": {
+    "managed_tag_key": {
+      "value": "rolust:managed"
+    },
+    "managed_tag_value": {
+      "value": "true"
+    },
+    "target_reader_role_name": {
+      "value": "RolustTrustPolicyReader"
+    },
+    "target_manager_role_name": {
+      "value": "RolustTrustPolicyManager"
+    },
+    "project_name": {
+      "value": "rolust"
+    }
+  }
+}

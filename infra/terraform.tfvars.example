@@ -1,0 +1,59 @@
+# Rolust の Terraform 変数の雛形。
+#
+# `terraform.tfvars` にコピーして使う。`.gitignore` により `*.tfvars` は
+# コミットされない（`*.tfvars.example` だけが追跡される）。
+#
+# **コメントアウトされた行（`# auth_mode = ...` など）は、variables.tf の既定値と同じ値である。**
+# 変えるときだけ `#` を外して値を書き換える。外さなければ既定値が使われる。
+# 外した値は、以後の plan・apply でも同じにする。
+# **必須なのは `pool_id` だけ**（既定値が無い）。下の `"my-team"` は例なので、自分の識別子に書き換える。
+# apply の前に決める変数は docs/guide/setup.md の「Terraform 変数を用意する」にある。
+#
+# **このファイルに資格情報を書かないこと**。
+# Basic 認証の資格情報は apply 後に `aws ssm put-parameter` で投入する。
+
+project_name              = "rolust"
+region                    = "ap-northeast-1"
+state_table_name          = "rolust-state"
+change_request_table_name = "rolust-change-requests"
+
+# この環境のユーザプールの識別子（Issue #108）。必須。既存の環境では、すでにあるユーザプールの識別子と同じ値にする
+# （変えると、それまでのデータが見えなくなる）。以後の plan・apply でも同じ値を使う。
+pool_id = "my-team"
+
+# Lambda@Edge は環境変数を持てないため、この名前は
+# packages/edge-auth/src/index.ts の CREDENTIALS_PARAMETER_NAME と一致していなければならない。
+basic_auth_parameter_name = "/rolust/basic-auth"
+
+# IP 許可リストの SSM パラメータ名。Lambda@Edge は環境変数を持てないため、この名前は
+# packages/edge-auth/src/index.ts の IP_ALLOWLIST_PARAMETER_NAME と一致していなければならない。
+ip_allowlist_parameter_name = "/rolust/ip-allowlist"
+
+# 認証方式。"basic"（既定。単一の資格情報）または "cognito"（複数の管理者。docs/guide/access-control.md の「認証方式の選択」）。
+# auth_mode = "basic"
+
+# Rolust が信頼ポリシーを読み書きしてよい IAM ロールを示す**タグ**。
+#
+# - IAM ポリシーは Resource = `role/*` を取り、`aws:ResourceTag/<key> = <value>` の
+#   条件で絞る。**Resource だけを見て「絞り込みが無効」と読んではならない。**
+# - 同じ値がロール登録時（画面 2）の入力検証にも使われ、タグの無いロールは 400 で弾かれる。
+# - **タグを付けるのは運用者である。** Rolust は iam:TagRole を持たない。管理対象を
+#   増やすには対象ロールに `aws iam tag-role` でタグを付ける。
+# - **管理対象の増減は terraform plan に現れない。** 接頭辞方式と違い、範囲の変更は
+#   Terraform の外で起きる。統制点は iam:TagRole の保持者に移る。
+# - タグはどのロールにも付きうるため、Rolust 自身の実行ロールにも付きうる。
+#   自己昇格は DenySelfEscalation の明示 Deny が防ぐ（これが単層の最終防衛線である）。
+#
+# managed_tag_key   = "rolust:managed"
+# managed_tag_value = "true"
+
+# クロスアカウント（Issue #85）: 別アカウントの IAM ロールを操作するために、Rolust の Lambda が引き受けるロールの名前。
+# ターゲットアカウント側に、この名前のロールを CloudFormation テンプレートで作る（docs/guide/cross-account.md。Terraform では作らない。
+# `terraform output -raw target_roles_deploy_command` がそのコマンドを表示する。Issue #92 により 2026-10-13 訂正。訂正前は手動で作るとしていた）。
+# ワイルドカード（*）とパス（/）は使えない。2 つは別の名前にする（同じだと CRUD・Diff が更新用のロールを引き受けられる）。
+#
+# target_reader_role_name  = "RolustTrustPolicyReader"
+# target_manager_role_name = "RolustTrustPolicyManager"
+
+cloudfront_price_class = "PriceClass_100"
+log_retention_days     = 14

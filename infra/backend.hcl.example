@@ -1,0 +1,33 @@
+# infra/backend.hcl の雛形。
+#
+#   cp backend.hcl.example backend.hcl
+#   $EDITOR backend.hcl
+#   terraform init -backend-config=backend.hcl
+#
+# state バケットを持たない場合は bootstrap から生成できる（手で書き写さない）:
+#
+#   terraform -chdir=bootstrap init
+#   terraform -chdir=bootstrap apply
+#   terraform -chdir=bootstrap output -raw backend_config_hcl > backend.hcl
+#
+# backend.hcl は .gitignore に入れてある（アカウント ID を含む環境固有の値のため）。
+
+# state を格納する S3 バケット。共有バケットでも構わない。
+bucket = "<state を置く S3 バケット名>"
+
+# 鍵。共有バケットで他プロジェクトと衝突させないため、
+# 第 1 階層にプロジェクト名を置く規約とする。
+key = "rolust/infra/terraform.tfstate"
+
+# バケットのリージョン。
+region = "<バケットのリージョン。例 ap-northeast-1>"
+
+# state を保存時に暗号化する。terraform plan / refresh は SSM SecureString の
+# 復号値を state に書き込むため、必ず true にすること。
+encrypt = true
+
+# S3 ネイティブロック（Terraform 1.10 以降）。DynamoDB ロックテーブルは不要。
+# 手元の plan・apply（複数の人・端末から走りうる）が同じ state のロックを取るため、
+# 無効にしてはならない。CD は持たない（docs/design/cd-config.md D-7・D-8。
+# Issue #55 により 2026-09-27 訂正: CD も apply する前提を改めた。Issue #181 により 2026-10-19 訂正: CD を廃止した）。
+use_lockfile = true

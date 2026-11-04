@@ -1,0 +1,45 @@
+/*
+ * GI-8 — 「アニメーションは 300ms 以下。`prefers-reduced-motion: reduce` で無効化する」
+ *
+ * ## Rolust 自身が定義するモーション
+ *
+ * 現時点で **0 件**である。`packages/web/src` に `transition` / `animation` /
+ * `@keyframes` の宣言はなく（インラインスタイルを含めて存在しない）、モーションは
+ * すべて Cloudscape のコンポーネントが自前の scoped CSS で持っている。
+ * 今後 Rolust 側でモーションを足す場合は、300ms 以下にしたうえで、下の
+ * `prefers-reduced-motion` ブロックに打ち消しを追記すること。
+ *
+ * ## Cloudscape 側のモーション
+ *
+ * Cloudscape のコンポーネントは 2 つの無効化経路を持つ。
+ *
+ * 1. 各コンポーネントの scoped CSS が `@media (prefers-reduced-motion: reduce)` を
+ *    自前で持つ（Modal / Flashbar / ExpandableSection など）。
+ * 2. `<body>` の `awsui-motion-disabled` クラス。`@cloudscape-design/global-styles`
+ *    の `disableMotion()` が付け外しする公式 API であり、`reduced-motion.ts` から
+ *    OS 設定に追従させている。
+ *
+ * ただし **`Spinner` はどちらの経路も持たない**（`spinner/styles.scoped.css` に
+ * `prefers-reduced-motion` も `awsui-motion-disabled` も現れず、0.7s / 1.5s の
+ * `infinite` アニメーションが常に回り続ける）。下のグローバル打ち消しは、この
+ * 取りこぼしを含めて「reduce を宣言した利用者の画面でモーションが動かない」ことを
+ * 担保するために置いている。Cloudscape 任せにはしない。
+ *
+ * `!important` と全称セレクタを使うのは、Cloudscape の scoped CSS がハッシュ付きの
+ * クラス名（`awsui_dialog_1d2i7_1q950_169`）を持ち、ビルドごとに変わるため、
+ * 個別に上書きする書き方が保守できないからである。Modal は `document.body` 直下の
+ * ポータルに描画されるため、`#root` 配下に限定せず文書全体を対象にする。
+ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+}

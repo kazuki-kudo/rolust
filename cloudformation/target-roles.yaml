@@ -1,0 +1,147 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Rolust のターゲットアカウント用ロール（Reader・Manager）。Rolust のデプロイ先アカウントの
+  Lambda 実行ロールが、これらを引き受けて、このアカウントの IAM ロールの信頼ポリシーを読み書きする。
+  ターゲットアカウントごとに 1 スタック。
+  Reader（CRUD・Diff が引き受ける）は読み取りだけ。Manager（Apply だけが引き受ける）は更新できる。
+  CRUD・Diff は Manager を引き受けられないので、マトリクスの操作では AWS へ書き込まない（FR-3.2）。
+
+Parameters:
+  DeployAccountId:
+    Type: String
+    AllowedPattern: '^[0-9]{12}$'
+    ConstraintDescription: Rolust をデプロイしたアカウントの ID（12 桁）。
+    Description: Rolust をデプロイしたアカウントの ID。
+  ProjectName:
+    Type: String
+    Default: rolust
+    AllowedPattern: '^[a-z][a-z0-9-]{1,30}$'
+    Description: Terraform の変数 project_name と同じ値。信頼する実行ロール（<ProjectName>-crud-exec など）の名前に使う。
+  ManagedTagKey:
+    Type: String
+    Default: "rolust:managed"
+    AllowedPattern: '^[A-Za-z0-9 _.:/=+@-]{1,128}$'
+    Description: Terraform の変数 managed_tag_key と同じ値。このタグが付いたロールだけを読み書きできる。
+  ManagedTagValue:
+    Type: String
+    Default: "true"
+    AllowedPattern: '^[A-Za-z0-9 _.:/=+@-]{1,256}$'
+    Description: Terraform の変数 managed_tag_value と同じ値。
+  ReaderRoleName:
+    Type: String
+    Default: RolustTrustPolicyReader
+    AllowedPattern: '^[A-Za-z0-9+=,.@_-]{1,64}$'
+    Description: Terraform の変数 target_reader_role_name と同じ値。
+  ManagerRoleName:
+    Type: String
+    Default: RolustTrustPolicyManager
+    AllowedPattern: '^[A-Za-z0-9+=,.@_-]{1,64}$'
+    Description: Terraform の変数 target_manager_role_name と同じ値。
+
+Rules:
+  DistinctRoleNames:
+    Assertions:
+      - Assert:
+          Fn::Not:
+            - Fn::Equals:
+                - Ref: ReaderRoleName
+                - Ref: ManagerRoleName
+        AssertDescription: >-
+          ReaderRoleName と ManagerRoleName は別の名前にする。同じだと、CRUD・Diff が更新用のロールを
+          引き受けられ、CRUD は AWS へ書き込めないという保証が外れる。
+
+Resources:
+  Reader:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName:
+        Ref: ReaderRoleName
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS:
+                - Fn::Sub: "arn:${AWS::Partition}:iam::${DeployAccountId}:role/${ProjectName}-crud-exec"
+                - Fn::Sub: "arn:${AWS::Partition}:iam::${DeployAccountId}:role/${ProjectName}-diff-exec"
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: rolust-reader
+          # 条件キー aws:ResourceTag/<キー> は YAML のマップのキーに関数を使えないので、
+          # ポリシー全体を Fn::Sub した JSON 文字列で渡す。
+          PolicyDocument:
+            Fn::Sub: |
+              {
+                "Version": "2012-10-17",
+                "Statement": [
+                  {
+                    "Sid": "ReadTrustPolicy",
+                    "Effect": "Allow",
+                    "Action": "iam:GetRole",
+                    "Resource": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/*",
+                    "Condition": { "StringEquals": { "aws:ResourceTag/${ManagedTagKey}": "${ManagedTagValue}" } }
+                  },
+                  {
+                    "Sid": "ReadRoleTagsForRegistrationCheck",
+                    "Effect": "Allow",
+                    "Action": "iam:ListRoleTags",
+                    "Resource": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/*"
+                  }
+                ]
+              }
+
+  Manager:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName:
+        Ref: ManagerRoleName
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS:
+                Fn::Sub: "arn:${AWS::Partition}:iam::${DeployAccountId}:role/${ProjectName}-apply-exec"
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: rolust-manager
+          # DenySelfEscalation は必須。無いと、Reader か Manager に管理対象タグが付いたとき、
+          # Rolust 経由で自分の信頼ポリシーを書き換えられる。
+          PolicyDocument:
+            Fn::Sub: |
+              {
+                "Version": "2012-10-17",
+                "Statement": [
+                  {
+                    "Sid": "ReadTrustPolicy",
+                    "Effect": "Allow",
+                    "Action": "iam:GetRole",
+                    "Resource": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/*",
+                    "Condition": { "StringEquals": { "aws:ResourceTag/${ManagedTagKey}": "${ManagedTagValue}" } }
+                  },
+                  {
+                    "Sid": "UpdateTrustPolicy",
+                    "Effect": "Allow",
+                    "Action": "iam:UpdateAssumeRolePolicy",
+                    "Resource": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/*",
+                    "Condition": { "StringEquals": { "aws:ResourceTag/${ManagedTagKey}": "${ManagedTagValue}" } }
+                  },
+                  {
+                    "Sid": "DenySelfEscalation",
+                    "Effect": "Deny",
+                    "Action": "iam:UpdateAssumeRolePolicy",
+                    "Resource": [
+                      "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${ReaderRoleName}",
+                      "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${ManagerRoleName}"
+                    ]
+                  }
+                ]
+              }
+
+Outputs:
+  ReaderRoleArn:
+    Value:
+      Fn::GetAtt: [Reader, Arn]
+  ManagerRoleArn:
+    Value:
+      Fn::GetAtt: [Manager, Arn]

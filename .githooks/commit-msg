@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+#
+# コミットメッセージに、守る対象（アカウント ID・CloudFront の DNS 名・IP・メール）が
+# 混ざっていないかを検査する（Issue #177）。コミットメッセージは `gitleaks git` の走査の
+# 対象外なので、コミットの時点でここで止める。
+#
+# 有効にする（clone したら一度）: git config core.hooksPath .githooks
+# gitleaks が無いと、コミットは拒否される（fail closed）。入れ方は CLAUDE.md の「保護値」の節。
+#
+# 作者とコミッタのメールも、メッセージと同じルールで検査する（Issue #182）。会社のメールなどが
+# 履歴に入るのを、コミットの時点で止める。`git var` を読むので、環境変数による上書きも見る。
+# 作者を決められないときも拒否する（通さない）。
+
+set -uo pipefail
+
+GUARD="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../.github/scripts/protected-values-guard.sh"
+msg="${1:?コミットメッセージのファイルが渡されていない}"
+
+# `commit -v` が付ける diff（切り取り線より後）はメッセージではないので除く。
+# `#` で始まる行は除かない: git は、エディタを開く既定のときだけ `#` の行を消し、`-m` や `-F` では
+# 本文にそのまま残す。フックはその区別を知れない（クリーンアップより前に呼ばれる）ので、安全側に倒す。
+rc=0
+sed -e '/^# -* >8 -*$/,$d' "$msg" | bash "$GUARD" text || rc=$?
+[[ "$rc" -eq 0 ]] || exit "$rc"
+
+# 作者とコミッタのメール。値は出さない（検査の報告もルールと位置だけ）。
+for kind in AUTHOR COMMITTER; do
+  ident="$(git var "GIT_${kind}_IDENT" 2>/dev/null)" || {
+    echo "コミットの ${kind} を決められない。git config user.email を noreply 形式にする（CLAUDE.md「保護値」）。" >&2
+    exit 1
+  }
+  email="${ident#*<}"; email="${email%%>*}"
+  printf '%s\n' "$email" | bash "$GUARD" text || {
+    rc=$?
+    echo "コミットの ${kind} のメールが保護値の検査に通らない。git config user.email を noreply 形式にする（CLAUDE.md「保護値」）。" >&2
+    exit "$rc"
+  }
+done

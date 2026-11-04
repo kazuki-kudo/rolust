@@ -1,0 +1,37 @@
+# Trivy の IaC スキャンで除外する検出。
+#
+# ここに書いてよいのは「意図的な設計判断であり、その根拠が成果物に記録されているもの」だけである。
+# expiredAt を過ぎると除外は自動的に失効し、検出が CI に戻る。期限は棚上げの防止装置であって
+# 延長のための書式ではない。期限が来たら、直すか、根拠を書き直して延長するかを明示的に決めること。
+#
+# ここに書いてよいのは CI ゲート（CRITICAL / HIGH）の対象になる検出だけである。
+# 対象外の重大度（MEDIUM / LOW）を書くと「それも見ている」という誤った印象を与える。
+#
+# 決定の記録（旧リポジトリ）: aidlc/spaces/default/intents/260728-rolust-iam-trust/construction/ci-pipeline/
+#             ci-pipeline-questions.md § Q4（回答 = A）
+
+misconfigurations:
+  - id: AWS-0011
+    paths:
+      - "cloudfront.tf"
+    statement: >-
+      CloudFront に WAF を付けないのは意図的な設計判断である。FR-6.1 の要求は
+      「認証なしで到達できない状態にする」ことであり、Basic 認証（Lambda@Edge）で
+      これを満たしている。IP 制限・SSO・WAF などの追加防御を行わないことは
+      `docs/guide/access-control.md` の「Basic 認証は『最小限のアクセス制限』である」節に明記済み。
+      WAF の追加は terraform apply が作るリソースを増やし NFR-4（README と
+      Terraform だけでセットアップが完了する）とコストに影響する。
+      この点は infrastructure-design (3.4) が infrastructure-services.md
+      「導入しないサービス」で「導入しない」と決しており、繰り延べではなく決定である。
+    expiredAt: 2027-02-10
+
+  - id: AWS-0132
+    paths:
+      - "cloudfront.tf"
+    statement: >-
+      SPA 配信用 S3 バケットを CMK ではなく SSE-S3（AES256）で暗号化するのは
+      意図的な設計判断である。当該バケットが保持するのは公開前提の SPA 静的資産のみで
+      あり機微情報を含まない。CMK 化は KMS キーと CloudFront OAC への鍵ポリシーを
+      追加で必要とし、terraform apply が作るリソースとコストを増やすため NFR-4 に影響する。
+      機微情報を扱う SSM SecureString 側は別途 KMS で保護されている。
+    expiredAt: 2027-02-10

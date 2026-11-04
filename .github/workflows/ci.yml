@@ -1,0 +1,349 @@
+# Rolust の CI。
+#
+# 設計と各ゲートの根拠は下記にある。数値・しきい値をここだけで変えないこと。
+#   docs/design/ci-config.md（Issue 旧 #213 により 2026-11-01、旧リポジトリの aidlc から切り出した）
+#   旧リポジトリの aidlc/spaces/default/intents/260728-rolust-iam-trust/construction/ci-pipeline/quality-gates.md
+#
+# このワークフローは CI のみを担う。デプロイ（CD）は扱わない。
+name: CI
+
+# `main` への push では走らせない（Issue #213）。利用上限を超えたため。2026-10 は、merge のたびに
+# 走る CI が利用分の約 40% を占めた。merge の結果の検査は PR の CI が受け持つ。
+# Release の前など、`main` で検査したいときは workflow_dispatch（gh workflow run ci.yml --ref main）か
+# ci-local.sh で走らせる。詳細は docs/design/ci-config.md D-1 と docs/development.md。
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# 読み取りのみ。CI は成果物を公開せず、AWS リソースも作らない。
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # 検証ツールは版を固定する。CI の結果が「いつ走らせたか」で変わると、
+  # 赤の原因がコードの変更なのかツールの更新なのか切り分けられなくなるため。
+  TRIVY_VERSION: "0.73.0"
+  GITLEAKS_VERSION: "8.30.1"
+  # 取得した tarball の SHA-256。各 Release の `*_checksums.txt` が公開している値である
+  # （Issue #194）。版を上げたら、この値も同じ Release の checksums から取り直すこと。
+  # 照合を省くと、CI が取ってくる実行ファイルが入れ替わっても気づけない——
+  # そのうえ gitleaks と trivy は「混入を見張る側」のコードである。
+  TRIVY_SHA256: "2edd39da482bb4e9831962487b68f68e3928ec3137794757f54d00383d79547b"
+  GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+  # infra/versions.tf の required_version が >= 1.10.0 である（S3 ネイティブロック
+  # use_lockfile を使うため）。この固定値を 1.10.0 未満に下げると terraform init が
+  # 落ちる。上げるのは構わないが、下げるときは versions.tf と合わせて判断すること。
+  TERRAFORM_VERSION: "1.10.5"
+  # ターゲット側ロールのテンプレートの検査（cloudformation/）。版を固定する理由は上と同じ。
+  CFN_LINT_VERSION: "1.57.2"
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # lint / typecheck / test / build
+  # ---------------------------------------------------------------------------
+  node:
+    name: Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # テストは Lambda・Lambda@Edge の実行環境（nodejs24.x）と同じ Node 24 だけで走らせる
+        # （Issue #238 により 2026-11-03 訂正。訂正前は 22 / 24 のマトリクス）。
+        # 手順書の下限（`docs/guide/setup.md` の「前提」と `package.json` の `engines`）も 24 で、
+        # 実行環境・テスト・下限が同じ版にそろっている。下限だけを別に確かめるジョブは持たない
+        # （Issue #248 により 2026-11-03 廃止。廃止前は Node 20.19 でビルドする build-floor があった）。
+        # `ci-local.sh` がこの行を読むので、1 要素でも配列の書式を保つ。
+        node: ["24"]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: 依存を入れる
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npm run typecheck
+
+      # 統合テスト（*.integration.test.ts）は vitest.config.ts が除外している。
+      # 実 IAM の信頼ポリシーを実際に書き換えるテストであり、CI の既定経路では走らせない。
+      - name: Unit tests + カバレッジ計測
+        run: npm run test:coverage
+
+      - name: Build
+        run: npm run build
+
+      - name: カバレッジをジョブサマリに出す
+        # 合否ゲートではない（ci-pipeline Q2 = A）。テストが落ちても数値は見たいので
+        # cancelled 以外では常に実行する。
+        if: ${{ !cancelled() }}
+        run: |
+          {
+            echo "## カバレッジ — Node ${{ matrix.node }}"
+            echo
+            echo "| 指標 | % | 実数 |"
+            echo "|---|---|---|"
+            jq -r '.total
+                   | to_entries[]
+                   | select(.key | IN("lines","statements","branches","functions"))
+                   | "| \(.key) | \(.value.pct)% | \(.value.covered)/\(.value.total) |"' \
+              coverage/coverage-summary.json
+            echo
+            echo "> 合否ゲートではない。現行コードは poc スコープ・Test Strategy: Minimal の下で"
+            echo "> 承認済みであり、後から別の基準で失格にしないための判断である。"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ---------------------------------------------------------------------------
+  # Terraform
+  # ---------------------------------------------------------------------------
+  # このジョブは PR 時点で Terraform を機械的に検査する唯一の経路である。
+  # infrastructure-design (3.4) の決定 A により、PR では AWS ロールを引き受けず
+  # terraform plan を走らせない（plan ロールが本番の Basic 認証資格情報を復号できるため）。
+  # 実リソースとの差分は、反映の直前に `docs/guide/` の手動経路で apply する者が
+  # plan-guard にかけて読む（cd-config.md D-7。CD は持たない。D-8）。
+  # 詳細: docs/design/cicd-pipeline.md § 決定 — PR 経路の権限境界
+  # このジョブを弱めると、PR 時点で Terraform を見る手段が無くなる。
+  terraform:
+    name: Terraform fmt / validate
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - name: 書式
+        run: terraform fmt -check -recursive -diff
+
+      # AWS 資格情報を要さない。バックエンドを無効化して初期化する。
+      # .terraform.lock.hcl はコミット済みなのでプロバイダ版は固定される。
+      - name: 初期化（バックエンドなし）
+        run: terraform init -backend=false
+
+      - name: 構文と型の検証
+        run: terraform validate
+
+      # auth_mode は count で Cognito の有無を切り替える。validate は構成を静的に見るだけで、依存の循環は
+      # グラフを作らないと見えない。循環は `auth_mode = "cognito"` のときだけ現れうる（コールバック URL が
+      # CloudFront のドメインを参照するため）。`terraform graph` は S3 バックエンドの設定のままだと資格情報を
+      # 要求するので、local バックエンドに差し替えて（override ファイル。コミットしない）から回す。
+      # AWS 資格情報は要らない（Issue #20）。
+      - name: 依存の循環の検査（auth_mode ごと）
+        run: |
+          printf 'terraform {\n  backend "local" {}\n}\n' > backend_override.tf
+          terraform init -input=false -reconfigure > /dev/null
+          for mode in basic cognito; do
+            echo "--- auth_mode=$mode ---"
+            TF_VAR_auth_mode="$mode" terraform graph > /dev/null
+          done
+          rm -f backend_override.tf
+
+      # infra/bootstrap/ は独立したルートモジュールである（state バケットを作る構成が
+      # そのバケットを使えないため、backend ブロックを持たずローカル state で動く）。
+      # init / validate は 1 ディレクトリしか見ないので、上の 2 ステップでは検証されない。
+      # 一方 fmt は -recursive が bootstrap を含むため追加不要。
+      #
+      # working-directory はジョブ既定（infra）を上書きし、ワークスペースルート相対で
+      # 解決される。相対の起点を間違えると infra/infra/bootstrap を探して即座に失敗する
+      # ——黙って飛ばされる形にはならない。
+      - name: 初期化（バックエンドなし） — bootstrap
+        working-directory: infra/bootstrap
+        run: terraform init -backend=false
+
+      - name: 構文と型の検証 — bootstrap
+        working-directory: infra/bootstrap
+        run: terraform validate
+
+  # ---------------------------------------------------------------------------
+  # plan-guard 自身の回帰テスト
+  # ---------------------------------------------------------------------------
+  # plan-guard.sh は本番デプロイを止める側のコードである。静かに壊れると
+  # 「全部落ちる」か「全部通る」のどちらかになり、後者は検査していない差分を
+  # 検査済みとして通す。ゲートそのものにゲートが要る。
+  #
+  # 判定ロジックを変えた PR の時点で自己検査が走らない状態は残せないため、CI 側に置く
+  # （ci-pipeline 再実行 2026-08-29 の Q5 = B）。CD は持たないので（cd-config.md D-8）、
+  # これが自己検査の唯一の実行経路である。
+  #
+  # 独立したジョブにしてあるのは、失敗箇所が Actions 上で terraform の検査と
+  # 分離して見えるようにするためである。AWS 資格情報も実 state も要さない。
+  plan-guard:
+    name: plan-guard の回帰テスト
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      # ubuntu-latest ランナーには jq が入っているが、明示的に確かめる。
+      # 無ければ plan-guard.test.sh は終了コード 2（前提不足）で落ちる。
+      - name: jq があることを確かめる
+        run: jq --version
+
+      - name: 赤信号 R-1〜R-12 の判定を検査する
+        run: ./.github/scripts/plan-guard.test.sh
+
+      # ci-local.sh は「CI と同じ検査を手元で走らせた」と言うための道具である（Issue #199）。
+      # ここにジョブを足して ci-local.sh に教え忘れると、**走らせていない検査を走らせた
+      # つもりになる**。黙って減る側の壊れ方なので、ジョブ一覧の一致を CI で見張る。
+      # plan-guard の自己検査と同じ理由でこのジョブに置く（ゲートそのものにゲートが要る）。
+      - name: ci-local.sh の宣言が ci.yml と一致するか
+        run: ./.github/scripts/ci-local.test.sh
+
+  # ---------------------------------------------------------------------------
+  # ターゲット側ロールのテンプレートと、Release の配布物を作る・検査するスクリプト
+  # ---------------------------------------------------------------------------
+  # target-roles.yaml はターゲットアカウントの権限を決める。plan-guard の R-12 は
+  # デプロイ先の Terraform だけを見るので、ターゲット側の権限（Reader が書き込めないこと、
+  # Manager の DenySelfEscalation、書き込みのタグ条件）はここで見張る。
+  # release.test.sh は、Release を作る前の関門（check-release.sh）の回帰テストである。
+  # どちらも AWS 資格情報を要さない（Issue #92）。
+  release-artifacts:
+    name: ターゲット側ロールのテンプレート・Release のスクリプト・手順書の英語版の整合
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      # cfn-lint は PyYAML を依存に持つ。target-roles.test.sh が YAML を読むのに使う。
+      - name: cfn-lint を導入する
+        run: pip install "cfn-lint==${CFN_LINT_VERSION}"
+
+      - name: テンプレートの構文と型
+        run: cfn-lint cloudformation/target-roles.yaml
+
+      - name: テンプレートの不変条件
+        run: ./cloudformation/target-roles.test.sh
+
+      - name: Release のスクリプトの回帰テスト
+        run: ./.github/scripts/release.test.sh
+
+      - name: 手順書の整合検査の回帰テスト
+        run: ./.github/scripts/guide-parity.test.sh
+
+      # 手順書の英語版（docs/guide/en/）は、日本語版と見出しの階層の列が一致していること（Issue #205）。
+      - name: 手順書の英語版と日本語版の見出しの整合
+        run: ./.github/scripts/guide-parity.sh
+
+  # ---------------------------------------------------------------------------
+  # IaC セキュリティスキャン
+  # ---------------------------------------------------------------------------
+  iac-scan:
+    name: IaC スキャン（Trivy）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Trivy を導入する
+        run: |
+          curl -sSfL -o /tmp/trivy.tar.gz \
+            "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          echo "${TRIVY_SHA256}  /tmp/trivy.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/trivy.tar.gz -C /tmp trivy
+          sudo mv /tmp/trivy /usr/local/bin/trivy
+          trivy --version
+
+      # scan-ref は infra であり、infra/bootstrap/ も再帰的に走査される
+      # （追加指定は不要）。bootstrap が持ち込む検出は AWS-0089（state バケットに
+      # S3 アクセスログなし・LOW）1 件のみで、このゲート（CRITICAL/HIGH）の対象外。
+      # 除外ファイルには書かない——対象外の重大度を書くと「それも見ている」という
+      # 誤った印象を与えるため。代替の監査手段は `docs/guide/limitations.md`（CloudTrail データイベント）にある。
+      #
+      # 重要: --ignorefile を明示すること。
+      # Trivy が自動検出するのはプレーンな `.trivyignore` だけであり、
+      # `.trivyignore.yaml` は明示しないと**黙って無視される**（実測で確認済み）。
+      # 除外の根拠と失効期限を書けるのは YAML 形式だけなので、この指定は外せない。
+      - name: CRITICAL / HIGH を検出したら失敗させる
+        run: |
+          # trivy config は対象のディレクトリを 1 つしか取れないので、2 回に分ける（Issue #92）。
+          for dir in infra cloudformation; do
+            trivy config "$dir" \
+              --ignorefile .trivyignore.yaml \
+              --severity CRITICAL,HIGH \
+              --exit-code 1
+          done
+
+      - name: 全重大度の一覧（報告のみ）
+        if: ${{ !cancelled() }}
+        run: |
+          {
+            echo "## Trivy — 全重大度"
+            echo
+            echo '```'
+            for dir in infra cloudformation; do
+              trivy config "$dir" --ignorefile .trivyignore.yaml --exit-code 0 --quiet
+            done
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ---------------------------------------------------------------------------
+  # シークレット走査
+  # ---------------------------------------------------------------------------
+  secrets:
+    name: シークレット・保護値の走査（gitleaks）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          # 履歴全体を走査する。一度コミットされた資格情報は、後の修正コミットでは
+          # 消えない。OQ-4（OSS 公開）の前提でもある。
+          fetch-depth: 0
+
+      - name: gitleaks を導入する
+        run: |
+          curl -sSfL -o /tmp/gitleaks.tar.gz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  /tmp/gitleaks.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
+          sudo mv /tmp/gitleaks /usr/local/bin/gitleaks
+          gitleaks version
+
+      - name: 履歴全体を走査し、検出したら失敗させる
+        # --redact: 検出値そのものをログに出さない。CI のログは履歴より広く読まれる。
+        run: gitleaks git . --no-banner --redact --exit-code 1
+
+      - name: 保護値の検査の回帰テスト
+        # ルールとラッパーが静かに壊れて「全部通る」状態になっていないかを先に確かめる。
+        # GITLEAKS_VERSION は上の env（gitleaks を導入した版）がそのまま渡る。
+        run: ./.github/scripts/protected-values-guard.test.sh
+
+      - name: 保護値（アカウント ID・CloudFront の DNS 名・IP・メール）の混入を検査する
+        # 追跡ファイルと、PROTECTED_BASE 以降の履歴・コミットメッセージを走査する。
+        # 検出値はログに出ない（ルール・ファイル・行だけを報告する）。履歴の起点は
+        # protected-values-guard.sh にある。
+        run: ./.github/scripts/protected-values-guard.sh
+
+  # ---------------------------------------------------------------------------
+  # 依存監査
+  # ---------------------------------------------------------------------------
+  deps:
+    name: 依存監査（npm audit）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24"
+          cache: npm
+
+      - run: npm ci
+
+      # high 以上で失敗させる。コードが変わらなくても新しい勧告の公開で赤くなりうる
+      # 種類のゲートである。赤くなったら「無視する」ではなく、更新するか、
+      # 影響しない根拠を記録したうえで扱いを決めること。
+      - name: high 以上の脆弱性で失敗させる
+        run: npm audit --audit-level=high

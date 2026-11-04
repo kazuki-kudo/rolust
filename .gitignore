@@ -1,0 +1,42 @@
+# --- Claude Code: personal overrides ---
+.claude/settings.local.json
+
+# --- Superpowers: 並行作業用の worktree（CLAUDE.md の「開発フロー」） ---
+.worktrees/
+
+# --- Node / TypeScript ---
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+.env
+.env.local
+
+# --- Terraform ---
+.terraform/
+infra/.build/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+# backend の実値。バケット名にアカウント ID を含む環境固有の値であり、
+# 実値を追跡対象に入れない（旧 OQ-4。OSS 公開のため）。雛形は backend.hcl.example。
+infra/backend.hcl
+# plan の保存物。`terraform plan` は SSM SecureString を refresh するため、
+# バイナリ・テキスト・JSON のいずれにも**本番の Basic 認証資格情報の復号値が入りうる**
+# （`docs/guide/limitations.md` の「Terraform の state に機微情報が入る」）。CD では artifact に 1 日だけ置き、
+# 手元では plan-guard を回した後に消す（cd-config.md § 手動経路でも使える）。
+tfplan
+tfplan.txt
+tfplan.json
+crash.log
+# `.terraform.lock.hcl` は**コミットする**。プロバイダのバージョンを固定できないと
+# NFR-4（第三者が同じ手順で同じ環境を再現できる）が成立しないため。
+.superpowers/
+
+# --- 個人設定（Issue #176）---
+# プロファイル名・アカウント ID などの個人の値の置き場。雛形（*.example）だけをコミットする。
+/.local/*
+!/.local/*.example
+.ci-local/
