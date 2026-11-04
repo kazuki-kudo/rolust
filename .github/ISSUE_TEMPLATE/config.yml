@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 脆弱性の報告
+    url: https://github.com/kazuki-kudo/rolust/security/advisories/new
+    about: 権限の昇格・認証の回避などの脆弱性は、公開の Issue に書かず、こちらから非公開で報告してください（SECURITY.md）。
