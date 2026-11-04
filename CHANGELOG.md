@@ -8,6 +8,10 @@
 
 ## 未リリース
 
+### 変更
+
+- 手順書（`docs/guide/operations.md`）のアンインストールの、state 用バケット（`infra/bootstrap/` で作ったもの）を削除する手順を直した（Issue #257）。手順 4 の後に展開先のルートへ戻る `cd ..` が無く、手順 5 の `terraform -chdir=infra/bootstrap …` が `infra/infra/bootstrap` を探して失敗していた。バケット名は `infra/backend.hcl` から読む。`infra/bootstrap/terraform.tfstate` が無い環境（新しい版へ更新したときに持ち越さなかったなど）の削除の道（古い展開先から実行する／`aws s3api delete-bucket`）を足した。更新手順の、`infra/bootstrap/` の state の持ち越しも、見落としにくい書き方に改めた。
+
 ## v0.2.0 - 2026-11-04
 
 ### 変更

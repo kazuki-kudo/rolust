@@ -39,7 +39,7 @@ Release の tarball で入れた環境を、新しい版に更新します。**�
 
    ```
 
-   `infra/bootstrap/` で state バケットを作った場合は、そのローカル state も持ち越します（アンインストールの `bootstrap destroy` で使います。無くしても、[setup.md の「2. Terraform state の置き場所を決める」](setup.md#2-terraform-state-の置き場所を決める)の `import` で取り込み直せます）。
+   **`infra/bootstrap/` で state バケットを作った環境では、そのローカル state も、同じ手順で持ち越します。** アンインストールの `bootstrap destroy` に要ります。持ち越さなかったときの対処は、[アンインストールの手順 5](#アンインストールする)にあります。`infra/bootstrap/` を使っていない環境（既存のバケットを使った環境）では、ファイルが無いので `cp` は失敗します。そのまま次へ進んでください。
 
    ```bash
    cp "$OLD"/infra/bootstrap/terraform.tfstate* infra/bootstrap/
@@ -175,19 +175,41 @@ export AWS_PROFILE=<プロファイル> AWS_REGION=<リージョン>
 
    ```
 
-5. **state 用のバケットを `infra/bootstrap/` で作った場合は、不要なら削除します。** 手順 4 の後でも、バケットには空の state ファイルとそのバージョンが残ります。バケットは `force_destroy = false` なので、**先に中身を空にしないと削除できません。** AWS のマネジメントコンソールの S3 で、そのバケットの「空にする」を実行します（バージョンも含めて削除されます）。バケット名は次で分かります。
+   最後に、**展開先のルートへ戻ります。** 次の手順のコマンドは、ルートから実行します。
 
    ```bash
-   terraform -chdir=infra/bootstrap output -raw state_bucket_name
+   cd ..
    ```
 
-   空にした後、**展開先のルート**（`infra/` の中ではありません）から実行します。`infra/bootstrap/` は backend を持たずローカル state で動くので、この手順が済むまで展開先を消さないでください。
+5. **state 用のバケットを `infra/bootstrap/` で作った場合は、不要なら削除します。** 既に別のバケットを使っていた場合は、そのバケットは Rolust のものではないので、削除しません（この手順は飛ばします）。手順 4 の後でも、バケットには空の state ファイルとそのバージョンが残ります。
 
-   ```bash
-   terraform -chdir=infra/bootstrap destroy
-   ```
+   **コマンドは、展開先のルート（`infra/` の中ではありません）で実行します。** `-chdir=infra/bootstrap` は相対パスなので、`infra/` の中では `infra/infra/bootstrap` を探して失敗します。
 
-   既に別のバケットを使っていた場合は、このバケットは Rolust のものではないので、削除しません。
+   1. **バケット名を調べます。** `infra/backend.hcl` の `bucket` が、state を置いたバケットです。ローカル state が無くても読めます。
+
+      ```bash
+      grep -E '^[[:space:]]*bucket[[:space:]]*=' infra/backend.hcl
+      ```
+
+   2. **バケットを空にします。** バケットは `force_destroy = false` なので、**先に中身を空にしないと削除できません。** AWS のマネジメントコンソールの S3 で、そのバケットの「空にする」を実行します（バージョンも含めて削除されます）。
+
+   3. **バケットを削除します。** `infra/bootstrap/terraform.tfstate` が手元にあるかで、次のどちらかを選びます。
+
+      ```bash
+      ls infra/bootstrap/terraform.tfstate
+      ```
+
+      - **ある場合**: `bootstrap destroy` で削除します。`infra/bootstrap/` は backend を持たずローカル state で動くので、この手順が済むまで展開先を消さないでください。
+
+        ```bash
+        terraform -chdir=infra/bootstrap destroy
+        ```
+
+      - **無い場合**（新しい版へ更新したときに持ち越さなかったなど）: まず、`bootstrap apply` を行った古い展開先に `infra/bootstrap/terraform.tfstate` が残っていないかを探します。あれば、その展開先のルートで上の `bootstrap destroy` を実行します（資格情報は、この手順の冒頭の `export` と同じものを使います）。どこにも無ければ、バケットを直接削除します。`infra/bootstrap/` が作る資源は、バケットとその付属の設定（バージョニング・暗号化・パブリックアクセスのブロック・ライフサイクル・バケットポリシー）だけなので、バケットを消せばすべて消えます。
+
+        ```bash
+        aws s3api delete-bucket --bucket <手順 1 のバケット名> --region <バケットのリージョン>
+        ```
 
 ### アンインストールで変わること
 
