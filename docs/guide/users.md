@@ -40,7 +40,7 @@ IAM に無いユーザが複数あるとき、IAM が報告するのは 1 件だ
 
 ```bash
 # 展開先のルートで実行する
-terraform -chdir=infra output -raw set_allowed_account_ids_command    # 実行すべきコマンドを表示する
+terraform -chdir=infra output -raw set_allowed_account_ids_command    # 実行すべきコマンドを表示する（下と同じ内容。export 行も含む）
 
 export MSYS_NO_PATHCONV=1                                # Git Bash で '/rolust/allowed-account-ids' がパスに変換されるのを防ぐ
 aws ssm put-parameter \

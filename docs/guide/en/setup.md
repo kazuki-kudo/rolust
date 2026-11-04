@@ -198,7 +198,7 @@ The **value of the SSM parameter is outside Terraform's management** (`lifecycle
 
 ```bash
 # Run from the root of the extracted directory
-terraform -chdir=infra output -raw set_basic_auth_command      # Prints the command to run
+terraform -chdir=infra output -raw set_basic_auth_command      # Prints the command to run (same as below, including the export line)
 
 export MSYS_NO_PATHCONV=1                         # Prevents Git Bash from converting '/rolust/basic-auth' into a path
 aws ssm put-parameter \
@@ -209,7 +209,7 @@ aws ssm put-parameter \
   --value '<user>:<password>'
 ```
 
-> **If you use Git Bash (Windows)**: without `MSYS_NO_PATHCONV=1`, `/rolust/basic-auth` is converted into a Windows path, and the parameter looks like it does not exist, which stops you. It is not needed on macOS / Linux.
+> **If you use Git Bash (Windows)**: without `MSYS_NO_PATHCONV=1`, `/rolust/basic-auth` is converted into a Windows path, and `put-parameter` stops with `ValidationException ... Parameter name must be a fully qualified name` (`get-parameter` returns ParameterNotFound). The command printed by `terraform output` already includes the `export` line. It is not needed on macOS / Linux.
 
 Lambda@Edge caches the credentials in the execution context for **5 minutes** (`CACHE_TTL_MS`). Right after you put them in, it can take up to 5 minutes to take effect.
 
