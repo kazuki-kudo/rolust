@@ -50,6 +50,16 @@ git ls-files -z -- infra cloudformation/target-roles.yaml .github/scripts/plan-g
   | tar --null -T - -cf - \
   | tar -xf - -C "$STAGE/$NAME"
 
+# 利用者向けのエージェント指示書（Issue #262）。正本を AGENTS.md として tarball の直下に複写し、
+# CLAUDE.md は @AGENTS.md の 1 行にする（内容を 1 か所に保つ）。正本そのものは入れない。
+AGENT_SRC=docs/tarball-agent-instructions.md
+if ! git ls-files --error-unmatch -- "$AGENT_SRC" >/dev/null 2>&1; then
+  echo "追跡された指示書の正本が無い: $AGENT_SRC" >&2
+  exit 1
+fi
+cp "$AGENT_SRC" "$STAGE/$NAME/AGENTS.md"
+printf '@AGENTS.md\n' > "$STAGE/$NAME/CLAUDE.md"
+
 for d in "${DISTS[@]}"; do
   mkdir -p "$STAGE/$NAME/$(dirname "$d")"
   cp -R "$d" "$STAGE/$NAME/$d"

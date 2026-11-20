@@ -79,6 +79,7 @@ make_repo() {
     echo "# access-control en" > docs/guide/en/access-control.md
     echo "# cross-account en" > docs/guide/en/cross-account.md
     echo '# design' > docs/design/requirements.md
+    printf '# agent instructions\n' > docs/tarball-agent-instructions.md
     printf 'infra/terraform.tfvars\ninfra/backend.hcl\ninfra/.terraform/\npackages/\n' > .gitignore
     git add -A
     git commit -q -m init
@@ -122,6 +123,12 @@ expect "LICENSE が tarball に入っている" 0 bash -c "tar -tzf '$OUT/rolust
 # README が SECURITY.md を相対リンクで指すので、同梱しないと tarball 内で切れる（Issue #194）。
 expect "SECURITY.md が tarball に入っている" 0 bash -c "tar -tzf '$OUT/rolust-v1.2.3.tar.gz' | grep -q 'rolust-v1.2.3/SECURITY.md\$'"
 expect "CHANGELOG.md が tarball に入っている" 0 bash -c "tar -tzf '$OUT/rolust-v1.2.3.tar.gz' | grep -q 'rolust-v1.2.3/CHANGELOG.md\$'"
+# 利用者向けのエージェント指示書（Issue #262）。正本は docs/tarball-agent-instructions.md で、tarball の直下に
+# AGENTS.md（正本の複写）と CLAUDE.md（@AGENTS.md の 1 行）として入る。正本そのものは入らない。
+expect "AGENTS.md が tarball の直下に入っている" 0 bash -c "tar -tzf '$OUT/rolust-v1.2.3.tar.gz' | grep -q 'rolust-v1.2.3/AGENTS.md\$'"
+expect "AGENTS.md が正本と同一である" 0 bash -c "tar -xzOf '$OUT/rolust-v1.2.3.tar.gz' rolust-v1.2.3/AGENTS.md | cmp -s - '$REPO/docs/tarball-agent-instructions.md'"
+expect "CLAUDE.md が @AGENTS.md の 1 行である" 0 bash -c "[ \"\$(tar -xzOf '$OUT/rolust-v1.2.3.tar.gz' rolust-v1.2.3/CLAUDE.md)\" = '@AGENTS.md' ]"
+expect "指示書の正本（docs/tarball-agent-instructions.md）は tarball に入らない" 1 bash -c "tar -tzf '$OUT/rolust-v1.2.3.tar.gz' | grep -q 'docs/tarball-agent-instructions.md'"
 expect "設計の正本（docs/design）は tarball に入らない" 1 bash -c "tar -tzf '$OUT/rolust-v1.2.3.tar.gz' | grep -q 'docs/design/'"
 expect "prerelease のタグも作れる" 0 "$BUILD" v0.0.0-rc.1 "$TMP/out-rc"
 # prerelease は、マージ前のブランチから実測のために打つので、CHANGELOG に節が無くても通す（release.yml の祖先チェックと同じ扱い）。
@@ -160,6 +167,10 @@ done
 mv "$REPO/packages/web/dist" "$TMP/web-dist-saved"
 expect "dist が無ければ作らない" 1 "$BUILD" v1.2.4 "$TMP/out-nodist"
 mv "$TMP/web-dist-saved" "$REPO/packages/web/dist"
+# 指示書の正本が追跡されていなければ、AGENTS.md を作れないので Release を作らない（Issue #262）。
+make_repo "$TMP/repo-noagent"
+git -C "$TMP/repo-noagent" rm -q --cached docs/tarball-agent-instructions.md
+expect "指示書の正本が追跡されていなければ作らない" 1 env ROLUST_REPO_ROOT="$TMP/repo-noagent" "$BUILD" v1.2.6 "$TMP/out-noagent"
 
 echo "== check-release.sh の拒否（tarball を 1 箇所ずつ壊す） =="
 # repack <名前> <展開後に実行するコマンド> : 正常な tarball を展開し、壊して、固め直す。
@@ -199,6 +210,16 @@ expect "CHANGELOG.md にそのタグの節が無ければ落ちる" 1 "$CHECK" "
 expect "CHANGELOG.md のそのタグの節が空なら落ちる" 1 "$CHECK" "$(repack emptysection "printf '# 変更履歴\n\n## v1.2.3 - 2026-01-02\n\n## v1.2.2 - 2026-01-01\n\n- x\n' > CHANGELOG.md")"
 expect "LICENSE がリポジトリのものと違えば落ちる" 1 "$CHECK" "$(repack licensediff 'echo "# x" >> LICENSE')"
 expect "plan-guard.sh がリポジトリのものと違えば落ちる" 1 "$CHECK" "$(repack guarddiff 'echo "# x" >> .github/scripts/plan-guard.sh')"
+expect "AGENTS.md が無ければ落ちる" 1 "$CHECK" "$(repack noagents 'rm AGENTS.md')"
+expect "CLAUDE.md が無ければ落ちる" 1 "$CHECK" "$(repack noclaude 'rm CLAUDE.md')"
+expect "AGENTS.md が正本と違えば落ちる" 1 "$CHECK" "$(repack agentsdiff 'echo x >> AGENTS.md')"
+expect "CLAUDE.md が @AGENTS.md の 1 行でなければ落ちる" 1 "$CHECK" "$(repack claudediff "printf '# dev\n' > CLAUDE.md")"
+expect "CLAUDE.md に CR があれば落ちる" 1 "$CHECK" "$(repack claudecrlf "printf '@AGENTS.md\r\n' > CLAUDE.md")"
+expect "指示書の正本（docs/tarball-agent-instructions.md）が混ざっていれば落ちる" 1 "$CHECK" "$(repack agentssrc 'mkdir -p docs && echo x > docs/tarball-agent-instructions.md')"
+# 正本も同じ内容にして、同一性ではなく CR で落ちることを確かめる。$REPO の正本を書き換えるので、終わったら戻す。
+cp "$REPO/docs/tarball-agent-instructions.md" "$TMP/agents-src.saved"
+expect "AGENTS.md に CR があれば落ちる" 1 "$CHECK" "$(repack agentscrlf "printf '# x\r\n' > AGENTS.md; printf '# x\r\n' > '$REPO/docs/tarball-agent-instructions.md'")"
+cp "$TMP/agents-src.saved" "$REPO/docs/tarball-agent-instructions.md"
 # Windows（Git Bash）では chmod -x が効かない（実行権限が拡張子や #! から決まる）。
 # 外せない環境ではこの検査を飛ばす（SKIP と表示する。CI の Linux では走る）。
 probe="$TMP/probe.sh"
