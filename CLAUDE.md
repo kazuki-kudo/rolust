@@ -18,6 +18,7 @@ AWS IAM ロールの信頼ポリシー（`AssumeRolePolicyDocument`）を、申�
 - `.gitleaks-protected.toml`・`.github/scripts/protected-values-guard.sh`・`.githooks/` — 保護値（アカウント ID など）の混入検査。規約は「保護値」の節（Issue #177）
 - `docs/design/` — 設計の正本（要件・画面設計・IAM ポリシー設計・CI/CD）。案内は `docs/design/README.md`
 - `docs/guide/` — 利用者向けの手順書（概要・セットアップ・認証・クロスアカウント・管理対象ロール・ユーザプール・運用・制約）。Release の tarball に同梱される。`docs/guide/en/` はセットアップ・認証・クロスアカウントの英語版（Issue #205・#245）
+- `docs/tarball-agent-instructions.md` — 利用者の AI コーディングエージェント向けの指示書の正本（日本語のみ）。`build-release.sh` が tarball の直下に `AGENTS.md`（複写）と `CLAUDE.md`（`@AGENTS.md` の 1 行）として入れる。このリポジトリ直下の `CLAUDE.md`（開発者向け）は tarball に入らない（Issue #262）
 - `docs/development.md`・`CONTRIBUTING.md` — 開発者向けの手引きと、貢献の流れ
 - `CHANGELOG.md` — 版ごとの、利用者に影響する変更と「更新時にやること」。tarball に同梱し、Release の本文の先頭にも使う（Issue #240）
 

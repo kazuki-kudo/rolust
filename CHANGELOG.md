@@ -8,6 +8,10 @@
 
 ## 未リリース
 
+### 変更
+
+- Release の tarball の直下に、AI コーディングエージェント向けの指示書（`AGENTS.md` と `CLAUDE.md`）を同梱しました。展開先で、`AGENTS.md` を読むエージェント（Claude Code は `CLAUDE.md` 経由）を起動すると、決めきれない値を推測せず質問しながら、手順書（`docs/guide/`）に沿ってセットアップを進めます。`terraform apply` など AWS に書き込む操作は、実行の前に承認を求めます。指示書は日本語で、エージェントは利用者の言語で応答します（`docs/guide/setup.md` の経路 A）。
+
 ## v0.2.1 - 2026-11-04
 
 ### 変更
