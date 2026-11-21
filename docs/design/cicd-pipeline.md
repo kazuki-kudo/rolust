@@ -287,11 +287,15 @@ apply ロールと同じく `StringEquals` の**完全一致**にした。許す
 `PutObject` / `DeleteObject` が要る。読み取りだけの権限では plan が失敗する。
 
 **`ssm:GetParameter` を含める必要がある点に注意。** `terraform plan` は
-`aws_ssm_parameter.basic_auth` を refresh するために SecureString を読み、
-**その復号値を state と plan artifact に書き込む**（`docs/guide/limitations.md` § Terraform の state に（Issue #178 により 2026-10-18 訂正）
-機微情報が入る、`cd-config.md` 申し送り 3）。plan ロールから外すことはできず、
-**CI 上で Basic 認証の資格情報が読まれることは構造的に避けられない**。
-plan artifact の保持期間を最小にすることが唯一の緩和策である。
+`aws_ssm_parameter` の各パラメータを refresh するために読む（`docs/guide/limitations.md` § Terraform の state に（Issue #178 により 2026-10-18 訂正）
+機微情報が入る、`cd-config.md` 申し送り 3）。
+
+（Issue #266 により 2026-11-21 訂正: 訂正前は、`terraform plan` が `aws_ssm_parameter.basic_auth` を refresh して
+SecureString の**復号値を state と plan artifact に書き込む**ため、**CI 上で Basic 認証の資格情報が読まれることは
+構造的に避けられない**と書いていた。Basic 認証の資格情報は Terraform の管理外にしたので、`terraform plan` は
+これを読まず、state と plan artifact にも入らない。残るのは API Gateway の API キーの値だけである。ただし、
+上の権限ポリシーの `ssm:GetParameter*` は `basic-auth` のパラメータも許すので、plan ロールが直接読む権限は
+残っている。この版では権限ポリシーを変えていない。plan ロールを再作成するときに、`basic-auth` を除く範囲に絞ることを検討する。）
 
 ### 権限ポリシー — `rolust-ci-apply`
 
@@ -448,7 +452,9 @@ fork PR のワークフローは権限が read に制限され `id-token: write`
 
 これが問題になるのは、**plan ロールが本番の Basic 認証資格情報を復号できる**ためである
 （本書 § 権限ポリシー — `rolust-ci-plan` に既述のとおり、`terraform plan` が
-`aws_ssm_parameter.basic_auth` を refresh するため構造的に避けられない）。
+`aws_ssm_parameter.basic_auth` を refresh するため構造的に避けられない）
+（Issue #266 により 2026-11-21 追記: 現行では、Terraform が `basic_auth` を管理しないので、plan が読む理由はなくなった。
+plan ロールの `ssm:GetParameter*` が許す範囲は変えていないので、直接読めることは変わらない。上の § 権限ポリシー — `rolust-ci-plan` の訂正を参照）。
 
 `sub` クレームは**どの PR でも `repo:kazuki-kudo@13983136/rolust@1318055439:pull_request` で同一**であり、
 信頼ポリシーの側で正当な PR と悪意ある PR を区別する手段がない（Issue #39 により 2026-09-26 訂正: `sub` を不変 ID の形式に改めた）。
@@ -530,7 +536,7 @@ apply の承認前に走る形になる（Issue #39 により 2026-09-26 追記:
 | R-5 | `aws_lambda_function.edge_auth` の `lambda_function_association` が default または `/api/*` ビヘイビアから外れる | **Basic 認証が外れる**（FR-6.1 違反）。`docs/guide/operations.md` § SPA を更新したとき（Issue #178 により 2026-10-18 訂正） の apply 後の確認（`curl` で 401 を期待。Issue #20 により 2026-10-05 追記: `auth_mode = "cognito"` では 302、`/api/` は 401）でも検知できるが、apply 後になる（Issue #51 により 2026-09-26 訂正: CD のスモークテストは廃止した） |
 | R-6 | `custom_error_response` の `error_code` に 404 が増える | API の正当な 404 が index.html に化ける（`infra/cloudfront.tf` の `custom_error_response`。Issue #39 により 2026-09-26 訂正: 行番号での参照を改めた） |
 | R-7 | `aws_s3_bucket_public_access_block.web` のいずれかが `false` になる | SPA バケットが公開されうる |
-| R-8 | `aws_ssm_parameter.basic_auth` または `aws_ssm_parameter.ip_allowlist`（Issue #76 により 2026-09-29 追記）の `value` に差分が出る | `lifecycle { ignore_changes = [value] }` が外れた証拠。apply すると**実運用の資格情報がプレースホルダで上書きされる**。`ip_allowlist` では、許可リストが初期値の `0.0.0.0/0` で上書きされ、IP 制限が外れる |
+| R-8 | `aws_ssm_parameter.ip_allowlist`（Issue #76 により 2026-09-29 追記）または `aws_ssm_parameter.allowed_account_ids`（Issue #139 により追記）の `value` に差分が出る（Issue #266 により 2026-11-21 訂正: 訂正前は `aws_ssm_parameter.basic_auth` も対象だった。Basic 認証の資格情報は Terraform の管理外にし、plan-guard は見なくなった。移行の plan は `forget` で、R-8 の対象外） | `lifecycle { ignore_changes = [value] }` が外れた証拠。`ip_allowlist` では、許可リストが初期値の `0.0.0.0/0` で上書きされ、IP 制限が外れる。`allowed_account_ids` では、足したアカウントが消える |
 | R-9 | `aws_iam_role_policy.crud_iam_read_tags` の Allow の `Action` が `["iam:ListRoleTags"]` 単体でない（`iam:GetRole` の追加、`iam:ListRoles` への差し替え、`iam:*`）、または `crud_iam_read_trust` の Allow の `Action` が `["iam:GetRole"]` 単体でない（`iam:UpdateAssumeRolePolicy` の追加など。Issue #80 により 2026-09-30 追記）。`policy` が plan 時点で未確定なら WARN（Issue #39 により 2026-09-26 追記） | CRUD がアカウント内の全ロールについてタグ以外も読めるようになる。このポリシーは `Resource = role/*` を条件なしで取るのが設計であり（タグ条件で絞ると「タグが無い」と「読めない」を区別できない）、R-1 の基準を当てると常に RED になるため番号を分けた。`crud_iam_read_trust` はタグ条件つきなので R-1 も当たり、Action の範囲を R-9 が見る（Issue #80 により 2026-09-30 追記） |
 | R-10 | plan 内の削除されない `aws_iam_role` のいずれかが、`apply_iam_write` の `Sid: DenySelfEscalation` の `Resource` に含まれない。ロールは `name` と `path` で識別し（新規作成では `arn` が plan 時点で未確定のため）、Deny の各 ARN の `:role` より後ろと glob（`*`・`?`）で照合する。ロール名か `path` が未確定なら WARN。`apply_iam_write` が plan に無い・削除される、または Deny が未確定・消失（R-2 が扱う）なら検査しない（Issue #24 により 2026-09-27 追記） | Rolust が作るロールを増やして `infra/main.tf` の `self_role_arns` に加え忘れると、タグが付いただけでそのロールの信頼ポリシーを Rolust 経由で書き換えられる。タグ方式では `DenySelfEscalation` が自ロールを守る単層の防御であり、R-2（`Resource` が減る）は追加漏れを捕まえられないため番号を分けた |
 | R-11 | (a) `aws_api_gateway_method` の作成または更新で、`api_key_required` が `true` でない。(b) `aws_cloudfront_distribution.rolust` の API オリジン（`origin_id` が `api-gateway`）に、`x-api-key` の `custom_header` が無い。(a) は変更の無いメソッドを検査しない（二段階の反映の途中の plan を落とさないため）。`api_key_required` やオリジンが plan 時点で未確定なら WARN。ヘッダーの値は sensitive で plan から読めないため、名前だけを見る（Issue #76 により 2026-09-29 追記） | API Gateway の直 URL が Lambda に届く経路が開く（FR-6.3）。IP 制限（FR-6.2）と Basic 認証（FR-6.1）は CloudFront の側にあり、直 URL には効かないので、API キーの要求が外れると API を守るものが無くなる。既知の限界: メソッドが `false` のまま変わらない状態は検知されない。反映後に、直 URL が 403 になることを実測で確かめる 対象は `aws_api_gateway_method` の全メソッド（型で選ぶ）で、`leaf` の全エントリ（`diff`・`drift`・`apply`）を含む（Issue #170 により 2026-10-15 追記）。乖離を直す操作の 2 経路（`drift_child` の `restore`・`adopt`）も含む（Issue #172 により 2026-10-16 追記）。 |
