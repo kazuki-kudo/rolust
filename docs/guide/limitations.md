@@ -2,18 +2,21 @@
 
 ## Terraform の state に機微情報が入る
 
-`terraform plan` / `refresh` は `aws_ssm_parameter` の SecureString を**復号して読み取り、state に平文で書き込みます**。`ignore_changes` は差分の抑止であって、state への記録は止めません。
+（Issue #266 により 2026-11-21 訂正: 訂正前は、Basic 認証の資格情報（SSM の SecureString）も state に入ると書き、「これは解消できません」としていた。資格情報は Terraform の管理から外したので、入らなくなった。入るのは API Gateway の API キーの値だけである。）
 
-**これは解消できません。** リモート化で得られるのは暗号化とアクセス制限であって、復号値が state に入ること自体は変わりません。
+`aws_ssm_parameter` の SecureString は、`terraform plan` / `refresh` が**復号して読み取り、state に平文で書き込みます**（`terraform plan -out` の plan ファイルにも入ります）。`ignore_changes` は差分の抑止であって、state への記録は止めません。
+
+Basic 認証の資格情報（`/rolust/basic-auth`）は、この理由で **Terraform の管理から外してあります**。Terraform が作らず、利用者が `aws ssm put-parameter` で作るので（[setup.md](setup.md) の「認証の準備」）、state にも plan にも入りません。
+
+**API Gateway の API キー（`aws_api_gateway_api_key`）の値は、解消できません。** CloudFront に `x-api-key` として渡すために Terraform が持つ値で、state に入ります。リモート化で得られるのは暗号化とアクセス制限であって、値が state に入ること自体は変わりません。
 
 - state は S3（SSE-KMS）に置きます（[setup.md](setup.md) の「Terraform state の置き場所を決める」）。バケットへのアクセスを制限してください。
 - `infra/bootstrap/` が作るバケットは SSE-KMS・バージョニング有効・パブリックアクセス全ブロック・HTTPS 強制・`force_destroy = false` です。**既存のバケットを使う場合は、少なくとも暗号化とバージョニングが有効であることを確認してください。**
 - ローカルの `terraform.tfstate` を共有・コミットしないでください（`.gitignore` 済み）。
 - `infra/backend.hcl` はアカウント ID を含むため `.gitignore` 済みです。共有する必要はありません。
-- CI で `terraform plan` を走らせる場合、**plan の artifact にも復号値が入りえます**。保持期間を最小にしてください。
-- **API Gateway の API キー（`aws_api_gateway_api_key`）の値も、state と plan の artifact に入ります**（CloudFront に `x-api-key` として渡す値のため）。SSM の資格情報と同じ扱いで、state へのアクセスを制限し、plan の artifact の保持期間を最小にしてください。鍵を入れ替えるには `terraform apply -replace=aws_api_gateway_api_key.rolust` を実行します。CloudFront の更新が終わるまでの数分、`/api/*` は 403 になります。
+- **API Gateway の API キー（`aws_api_gateway_api_key`）の値は、state と plan の artifact に入ります**（CloudFront に `x-api-key` として渡す値のため）。CI で `terraform plan` を走らせる場合は、plan の artifact の保持期間を最小にしてください。state へのアクセスも制限してください。鍵を入れ替えるには `terraform apply -replace=aws_api_gateway_api_key.rolust` を実行します。CloudFront の更新が終わるまでの数分、`/api/*` は 403 になります。
 
-`auth_mode = "cognito"` では、Rolust は秘密を持ちません。SSM に置く接続情報（`/rolust/auth-cognito`）は issuer・クライアント ID・エンドポイントの URL だけで、公開情報です。`basic-auth` の SSM（SecureString）は、`cognito` でもプレースホルダのまま作られます。
+`auth_mode = "cognito"` では、Rolust は秘密を持ちません。SSM に置く接続情報（`/rolust/auth-cognito`）は issuer・クライアント ID・エンドポイントの URL だけで、公開情報です。`basic-auth` の SSM（SecureString）は、Terraform が作りません（Issue #266 により 2026-11-21 訂正: 訂正前は、`cognito` でもプレースホルダのまま作られると書いていた）。`cognito` では作らなくてよく、読まれることもありません。
 
 state バケットに S3 アクセスログは設定していません（Trivy の `AWS-0089`、重大度 LOW）。ログ用のバケットが追加で必要になり、`terraform apply` が作るものが増えるためです。state の読み取りを監査したい場合は CloudTrail のデータイベントを有効にしてください。
 

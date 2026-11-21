@@ -8,6 +8,21 @@
 
 ## 未リリース
 
+### 変更
+
+- Basic 認証の資格情報（SSM の SecureString。既定の名前は `/rolust/basic-auth`）を、Terraform の管理から外した（Issue #266）。`terraform plan` / `refresh` は SecureString を復号して state に平文で書き、plan ファイルにも入れる。`ignore_changes` はこれを止めない。管理から外したので、資格情報は state にも plan にも入らない（入るのは API Gateway の API キーの値だけ。`docs/guide/limitations.md`）。
+  - 新しく入れるときは、`terraform apply` の後に、出力 `set_basic_auth_command` のコマンドで資格情報を作る（作成と更新は同じコマンド）。作るまで、管理画面は `503` で閉じたまま。`auth_mode = "cognito"` では作らなくてよい。
+  - `infra/edge-auth.tf` の `removed` ブロックが、旧版で作った環境の state からこのパラメータを外す（パラメータは消えず、資格情報はそのまま使える）。このブロックは消さない。
+  - plan-guard の R-8 は、`basic_auth` を見なくなった（IP 許可リスト・許可アカウントは従来どおり）。
+
+### 更新時にやること
+
+- 旧版で入れた環境（`auth_mode = "basic"` のとき、資格情報を投入済みのもの）を更新するとき、`terraform plan` に `aws_ssm_parameter.basic_auth` が「no longer managed」（plan の JSON では `forget`）として出る。**state から外すだけで、パラメータは削除されない。** 確かめること:
+  - plan の末尾の destroy が **0 件**であること（`Plan: 0 to add, 0 to change, 0 to destroy`）。`1 to destroy` が出たら、apply せずに止める。
+  - `aws_iam_role_policy.edge_auth_ssm` に差分が出ないこと（Resource の文字列が、旧版の参照と同じ値になる）。
+- apply の後、資格情報は作り直さなくてよい（パラメータは残っている）。`terraform state list` に `basic_auth` が無く、管理画面が `401`（資格情報なし）であることを確かめる。
+- 版を飛ばして更新しても、`removed` ブロックが残っているので、パラメータは消えない。`infra/edge-auth.tf` の `removed` ブロックを自分で消さない。
+
 ## v0.2.1 - 2026-11-21
 
 ### 変更
