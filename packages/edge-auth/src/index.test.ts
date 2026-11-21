@@ -149,6 +149,27 @@ describe("Lambda@Edge の Basic 認証（FR-6.1）", () => {
     expect(result.status).toBe("503");
   });
 
+  it("エッジケース: 資格情報のパラメータが無い（ParameterNotFound）なら通さず 503（fail closed。Issue #266）", async () => {
+    ssmMock
+      .on(GetParameterCommand, { Name: CREDENTIALS_PARAMETER_NAME })
+      .rejects(Object.assign(new Error("not found"), { name: "ParameterNotFound" }));
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    expect(asResponse(await handler(event(VALID_HEADER))).status).toBe("503");
+  });
+
+  it("パラメータが作られたら、待たずに通る（失敗をキャッシュしない。Issue #266）", async () => {
+    ssmMock
+      .on(GetParameterCommand, { Name: CREDENTIALS_PARAMETER_NAME })
+      .rejects(Object.assign(new Error("not found"), { name: "ParameterNotFound" }));
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    expect(asResponse(await handler(event(VALID_HEADER))).status).toBe("503");
+
+    mockCredentials(`${USER}:${PASSWORD}`); // 利用者が put-parameter で作った（後に宣言した .on() が優先される）
+
+    expect(await handler(event(VALID_HEADER))).toMatchObject({ uri: "/", method: "GET" });
+  });
+
   it("エッジケース: パラメータの書式が不正なら通さない", async () => {
     mockCredentials("no-colon-here");
     vi.spyOn(console, "error").mockImplementation(() => undefined);
@@ -368,6 +389,18 @@ describe("認証方式の選択（FR-6.4）", () => {
 
     await handler(event());
 
+    expect(callsFor(CREDENTIALS_PARAMETER_NAME)).toBe(0);
+  });
+
+  it("cognito では basic-auth が無くても（作らなくてよい）動く（Issue #266）", async () => {
+    useCognito();
+    ssmMock
+      .on(GetParameterCommand, { Name: CREDENTIALS_PARAMETER_NAME })
+      .rejects(Object.assign(new Error("not found"), { name: "ParameterNotFound" }));
+
+    const result = asResponse(await handler(event()));
+
+    expect(result.status).toBe("302");
     expect(callsFor(CREDENTIALS_PARAMETER_NAME)).toBe(0);
   });
 
