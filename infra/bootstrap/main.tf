@@ -38,8 +38,9 @@ resource "aws_s3_bucket_versioning" "state" {
 /**
  * SSE-KMS。
  *
- * `terraform plan` / `refresh` は `aws_ssm_parameter.basic_auth`（SecureString）を
- * refresh する際に**復号値を state に書き込む**（`docs/guide/limitations.md` の「Terraform の state に機微情報が入る」）。
+ * Basic 認証の資格情報（SSM の SecureString）は Terraform の管理外で、state に入らない（Issue #266 により 2026-11-21 訂正。
+ * 訂正前は、`terraform plan` / `refresh` が `aws_ssm_parameter.basic_auth` を refresh する際に復号値を state に書き込む、と書いていた）。
+ * state には、API Gateway の API キーの値は入る（`docs/guide/limitations.md` の「Terraform の state に機微情報が入る」）。
  * したがって state バケットは機密を保持するバケットとして扱う。
  *
  * `kms_master_key_id` を省略すると AWS 管理キー `alias/aws/s3` が使われる。

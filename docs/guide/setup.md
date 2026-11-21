@@ -172,7 +172,7 @@ cd ..                                          # 展開先のルートへ戻る�
 
 初回は、作成するリソースの値が plan の時点で確定しないため、警告（WARN）が出ます。警告は「検査できなかった」であって「問題なし」ではありません。該当箇所は `terraform show tfplan` で plan を目視で確かめてから apply してください。保存した plan を渡す `terraform apply tfplan` は、確認の入力を求めずに適用します。
 
-`tfplan` と `tfplan.json` には SSM の SecureString の復号値が含まれうるため、apply の後に消してください（`.gitignore` 済み）。
+`tfplan` と `tfplan.json` には API Gateway の API キーの値が含まれるため、apply の後に消してください（`.gitignore` 済み。Basic 認証の資格情報は Terraform の管理外なので、含まれません。Issue #266 により 2026-11-21 訂正）。
 
 作成されるもの:
 
@@ -182,7 +182,6 @@ cd ..                                          # 展開先のルートへ戻る�
 - S3 バケット（非公開。CloudFront の OAC 経由でのみ読める）と SPA のアップロード
 - CloudFront ディストリビューション（viewer-request に Lambda@Edge を関連付け）
 - Lambda@Edge と実行ロール（**us-east-1**）
-- SSM パラメータ（SecureString、**値はプレースホルダ**）
 - SSM パラメータ（String、IP 許可リスト。**初期値は全許可の `0.0.0.0/0`**）
 - SSM パラメータ（String、ユーザプールに登録できる IAMユーザのアカウント ID の許可リスト。**初期値はデプロイ先のアカウントだけ**。デプロイ先リージョン）
 - API Gateway の API キーと usage plan（CloudFront が `x-api-key` に付け、API Gateway の直 URL を塞ぐ）
@@ -194,9 +193,11 @@ CloudFront の作成には数分〜十数分かかります。
 
 手順 3 で決めた `auth_mode` に合わせて、次のどちらかを行います。もう一方は飛ばします。
 
-### `auth_mode = "basic"`（既定）の場合: 資格情報を投入する
+### `auth_mode = "basic"`（既定）の場合: 資格情報を作る
 
-SSM パラメータの**値は Terraform の管理外**です（`lifecycle { ignore_changes = [value] }`）。apply 直後のプレースホルダは意図的に `:` を含まない不正な値であり、`packages/edge-auth` はこれを通さず `503` を返します。**実値を入れるまで管理画面は閉じたまま**です（fail closed）。
+資格情報を置く SSM パラメータ（SecureString）は、**Terraform が作りません**。apply の後に、下のコマンドで作ります。復号した値が Terraform の state と plan に入らないようにするためです。パラメータが無い間、`packages/edge-auth` は `503` を返します。**作るまで管理画面は閉じたまま**です（fail closed）。作成と更新は同じコマンドです（`--overwrite` は、パラメータが無ければ作り、あれば更新します）。
+
+（Issue #266 により 2026-11-21 訂正: 訂正前は、Terraform がプレースホルダの値でパラメータを作り、`ignore_changes` で値を管理外にしていた。旧版から更新した環境では、パラメータはそのまま残り、`terraform apply` が state から外すだけで、資格情報は変わりません。更新の手順は `CHANGELOG.md` の「更新時にやること」を参照してください。）
 
 ```bash
 # 展開先のルートで実行する

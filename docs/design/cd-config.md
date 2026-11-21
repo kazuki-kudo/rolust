@@ -100,6 +100,9 @@
 plan ロールを引き受けられた。plan ロールは `terraform plan` が
 `aws_ssm_parameter.basic_auth` を refresh する構造上、**本番の Basic 認証資格情報を復号できる**。
 apply には人的承認が要るのに plan には要らない——この非対称性が承認ゲートの意味を弱めていた。
+（Issue #266 により 2026-11-21 追記: Basic 認証の資格情報は Terraform の管理外にした。`terraform plan` は
+これを refresh しなくなったので、「構造上」の理由は消えた。plan ロールの `ssm:GetParameter*` の範囲は変えていないので、
+直接読める点は変わらない。`cicd-pipeline.md` § 権限ポリシー — `rolust-ci-plan` を参照。CD は Issue #181 で廃止した。）
 
 `sub` クレームはどの PR でも `repo:kazuki-kudo@13983136/rolust@1318055439:pull_request` で同一であり、
 信頼ポリシー側で正当な PR と悪意ある PR を区別できない。したがって**経路ごと閉じた**（Issue #39 により 2026-09-26 訂正: `sub` を不変 ID の形式に改めた）。

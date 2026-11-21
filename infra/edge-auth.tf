@@ -88,10 +88,14 @@ resource "aws_iam_role_policy" "edge_auth_ssm" {
     Version = "2012-10-17"
     Statement = [
       {
+        # Basic 認証の資格情報は Terraform が管理しない（下の `removed` ブロックの説明）ので、リソースを参照できない。
+        # パラメータの ARN は名前とアカウントから決まるので、文字列で組む（旧版の参照と同じ値になり、既存環境に差分は出ない）。
+        # 変数は先頭の `/` を検証していない。`/` が無い名前でも ARN は `parameter/<名前>` になるので、`trimprefix` で揃える
+        # （`parameter${name}` と書くと、`/` の無い名前で `parametername` になり、IAM が拒否して 503 になる）。
         Sid      = "ReadCredentials"
         Effect   = "Allow"
         Action   = "ssm:GetParameter"
-        Resource = aws_ssm_parameter.basic_auth.arn
+        Resource = "arn:${local.partition}:ssm:us-east-1:${local.account_id}:parameter/${trimprefix(var.basic_auth_parameter_name, "/")}"
       },
       {
         Sid      = "ReadIpAllowlist"
@@ -150,26 +154,23 @@ resource "aws_lambda_function" "edge_auth" {
 }
 
 /**
- * Basic 認証の資格情報（`<ユーザ名>:<パスワード>` の SecureString）。
+ * Basic 認証の資格情報（`<ユーザ名>:<パスワード>` の SecureString。`var.basic_auth_parameter_name`）は、
+ * **Terraform の管理外**である。利用者が apply の後に `aws ssm put-parameter` で作る
+ * （出力 `set_basic_auth_command`）。作るまでパラメータは無く、`packages/edge-auth` が `ParameterNotFound` を
+ * 503 にするので、管理画面は**閉じたまま**になる（fail closed）。
  *
- * **値は Terraform の管理外**（`ignore_changes`）。作成時のプレースホルダは
- * 意図的に `:` を含まない — `packages/edge-auth` は書式不正を通さず 503 を返すため、
- * 実値を投入するまで管理画面は**閉じたまま**になる（fail closed）。
+ * `aws_ssm_parameter` は `ignore_changes = [value]` を付けても、refresh のたびに SecureString を復号して
+ * **state に書き込み**、plan ファイルにも入れる。これを止めるため、リソースごと管理から外した（Issue #266）。
  *
- * 注意: `terraform refresh` / `plan` は SecureString の実値を読み取り**state に書き込む**。
- * state ファイルは暗号化されたバックエンド（S3 + SSE-KMS など）に置き、
- * アクセスを制限すること。詳細は `docs/guide/limitations.md` を参照。
+ * 次の `removed` ブロックは、旧版で作った環境の state からこのリソースを外す（`destroy = false` なのでパラメータは
+ * 消えず、資格情報はそのまま使える）。**このブロックは消さない。** 版を飛ばして更新した環境の state に
+ * `basic_auth` が残っていると、ブロックが無い場合は SecureString が destroy されて、管理画面が閉じる。
  */
-resource "aws_ssm_parameter" "basic_auth" {
-  provider = aws.us_east_1
-
-  name        = var.basic_auth_parameter_name
-  description = "Rolust 管理画面の Basic 認証資格情報（<user>:<password>）。値は手動投入。"
-  type        = "SecureString"
-  value       = "REPLACE-ME-AFTER-APPLY"
+removed {
+  from = aws_ssm_parameter.basic_auth
 
   lifecycle {
-    ignore_changes = [value]
+    destroy = false
   }
 }
 

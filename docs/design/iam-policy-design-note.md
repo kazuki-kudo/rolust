@@ -348,6 +348,8 @@ ExternalId が防ぐのは、第三者のサービスが複数の顧客のロー
 
 > **Issue #26 により 2026-09-24 訂正**: OQ-1 は Lambda@Edge の Basic 認証に確定し、資格情報は SSM Parameter Store（SecureString）に置く（code-generation の質問 2）。権限は Lambda@Edge の実行ロールが持ち、3 系統には追加しない（3.8）。
 
+（Issue #266 により 2026-11-21 追記: Basic 認証の資格情報の SecureString は Terraform の管理外にした。利用者が `aws ssm put-parameter` で作り、`terraform plan` / `refresh` が復号して state に書くことはない。）
+
 FR-6.1 の手段として Basic 認証を選び、資格情報を SSM Parameter Store / Secrets Manager に置く場合のみ、`ssm:GetParameter` または `secretsmanager:GetSecretValue`（+ 必要なら `kms:Decrypt`）を追加する。CloudFront 署名付き URL / Cookie を選んだ場合、検証は CloudFront 側で完結するため Lambda 実行ロールへの追加は不要。 [FR-6.1][Q12][derived]
 
 （Issue #20 により 2026-10-05 追記: `auth_mode = "cognito"` のとき、資格情報は Cognito が持ち、Rolust は秘密を持たない。SSM に置くのは、認証方式（`/rolust/auth-mode`）と、公開情報だけの接続情報（`/rolust/auth-cognito`。String）である。 [FR-6.4]）
@@ -361,7 +363,7 @@ FR-6.1 の手段として Basic 認証を選び、資格情報を SSM Parameter 
 | ロール | `rolust-edge-auth-exec`（us-east-1 に作る） |
 | 信頼ポリシー | `lambda.amazonaws.com` と `edgelambda.amazonaws.com` の両方。片方だけではレプリケーションできない |
 | ログ | `logs:CreateLogGroup` / `logs:CreateLogStream` / `logs:PutLogEvents`。対象は、Terraform が管理する 3 リージョン（us-west-1・eu-central-1・us-east-1）の `/aws/lambda/us-east-1.rolust-edge-auth`（と `:*` 付きの形）に限る。エッジのリージョンは選べず全リージョン分を先に作れないため、`logs:CreateLogGroup` は残す（Issue #9 により 2026-09-29 訂正: 以前は全リージョンの `/aws/lambda/*.rolust-edge-auth` を許し、別のエッジが使われるたびに保持無期限・Terraform 管理外のロググループが自動作成されていた）。それ以外のリージョンのエッジが処理した分は書き込みを拒否され、ロググループは作られず、ログも残らない。リージョンを足すときの手順は `infra/monitoring.tf` にある |
-| 資格情報 | `ssm:GetParameter`（Basic 認証の SSM パラメータ 1 件に限定）と `kms:Decrypt`（`Resource: "*"`、`kms:ViaService` = `ssm.us-east-1.amazonaws.com` の条件付き） |
+| 資格情報 | `ssm:GetParameter`（Basic 認証の SSM パラメータ 1 件に限定。ARN は名前とアカウントから組んだ文字列で、リソースへの参照ではない。パラメータは Terraform の管理外。Issue #266 により 2026-11-21 追記）と `kms:Decrypt`（`Resource: "*"`、`kms:ViaService` = `ssm.us-east-1.amazonaws.com` の条件付き） |
 | IP 許可リスト | `ssm:GetParameter`（IP 許可リストの SSM パラメータ 1 件に限定）。String なので KMS は要らない（Issue #76 により 2026-09-29 追記） |
 | 認証方式・OIDC の接続情報 | `ssm:GetParameter`（`auth-mode` と `auth-cognito` の 2 件に限定。`auth-cognito` の ARN は名前とアカウントから組んだ文字列で、リソースへの参照ではない。Terraform の依存の循環を避けるため）。String なので KMS は要らない。`kms:Decrypt` は SecureString の `basic-auth` のためだけである（Issue #20 により 2026-10-05 追記） |
 

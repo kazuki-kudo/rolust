@@ -134,7 +134,7 @@ Lambda@Edge の更新は他の要素と比べて桁違いに遅く、**ロール
 | Terraform のみ（`infra/*.tf`） | 通常の反映（`docs/guide/` の手順（Issue #178 により 2026-10-18 訂正））（Issue #4 により 2026-09-27 訂正） | plan の差分を apply の前に必ず読むこと（Issue #4 により 2026-09-27 訂正） |
 | `managed_tag_key` / `managed_tag_value` の変更 | **通常の反映に載せない**（Issue #4 により 2026-09-27 訂正） | IAM ポリシーの `Condition` が変わり、旧タグの付いた登録済みロールが一斉に反映不能になる。加えて Lambda の環境変数（`ROLUST_MANAGED_TAG_KEY` / `ROLUST_MANAGED_TAG_VALUE`）も同時に変わるため、登録時検証の基準も切り替わる。影響範囲の確認が先。`docs/guide/managed-roles.md` § 管理対象は IAMロールのタグで絞り込まれる（Issue #178 により 2026-10-18 訂正） |
 | **対象ロールへのタグ付け / タグ剥がし** | **反映の経路に存在しない**（Issue #4 により 2026-09-27 訂正） | Rolust も Terraform も `iam:TagRole` を持たない。管理対象の増減は運用者が `aws iam tag-role` で行い、`terraform plan` にも `plan-guard` にも現れない（Issue #4 により 2026-09-27 訂正: 承認画面は無い）。**接頭辞方式では変数変更として plan に映っていた性質が失われている。** 統制点は `iam:TagRole` の保持者に移った |
-| Basic 認証の資格情報 | **反映の対象外**（Issue #4 により 2026-09-27 訂正） | SSM の値は `lifecycle { ignore_changes = [value] }` により Terraform 管理外。`aws ssm put-parameter` で直接投入する（`docs/guide/setup.md` の「Basic 認証の資格情報を投入する」（Issue #178 により 2026-10-18 訂正））。反映まで最大 5 分（`CACHE_TTL_MS`）。この `ignore_changes` が外れると赤信号 R-8 として `plan-guard.sh` が止める（CD の `guard` と、apply の前に手元で実行するもの。Issue #4 により 2026-09-27 訂正） |
+| Basic 認証の資格情報 | **反映の対象外**（Issue #4 により 2026-09-27 訂正） | Terraform が作らない（リソースを持たない。Issue #266 により 2026-11-21 訂正: 訂正前は、SSM の値を `lifecycle { ignore_changes = [value] }` で Terraform 管理外にし、`ignore_changes` が外れると赤信号 R-8 として `plan-guard.sh` が止めていた。refresh が復号値を state に書くため、リソースごと管理から外した。旧版の環境は `removed` ブロック（`destroy = false`）で state から外れる）。`aws ssm put-parameter` で作る（`docs/guide/setup.md` の「認証の準備」）。反映まで最大 5 分（`CACHE_TTL_MS`） |
 | 認証方式（`/rolust/auth-mode`）と Cognito の接続情報（`/rolust/auth-cognito`） | **反映の対象**（Issue #20 により 2026-10-05 追記） | `auth-mode` は `var.auth_mode` を書く（`ignore_changes` なし）。`auth-cognito` は `auth_mode = "cognito"` のときだけ Terraform が作る。方式を切り替える apply では、apply の間と最大 5 分（`CACHE_TTL_MS`）の間、503 になりうる（空白期間。許容済み）。Cognito は反映の後に作られるので、Hosted UI が使えるまで数分かかる。`cognito` から `basic` に戻すと、ユーザープールとユーザは破棄される |
 | `basic_auth_parameter_name` の変更 | **通常の反映に載せない**（Issue #4 により 2026-09-27 訂正） | Lambda@Edge は環境変数を持てないため `packages/edge-auth/src/index.ts` の `CREDENTIALS_PARAMETER_NAME` も同じ値に書き換えて再ビルドする必要がある（`docs/guide/limitations.md` § そのほか（Issue #178 により 2026-10-18 訂正））。コードと変数の同時変更であり、片方だけ反映すると認証が壊れる |
 
@@ -163,9 +163,10 @@ Lambda@Edge の更新は他の要素と比べて桁違いに遅く、**ロール
 
 赤信号のうち本書に直接かかわるのは次の 2 つである。
 
-- **R-8**（`aws_ssm_parameter.basic_auth` の `value` に差分）は § 変更の種類ごとの扱い の
-  「Basic 認証の資格情報は反映の対象外」（Issue #4 により 2026-09-27 訂正）が破れた状態そのものである。apply すると
-  実運用の資格情報がプレースホルダで上書きされる。
+- **R-8**（`aws_ssm_parameter.ip_allowlist`・`allowed_account_ids` の `value` に差分）は、`ignore_changes` が外れた状態そのものである。
+  apply すると許可リストが初期値で上書きされる（Issue #266 により 2026-11-21 訂正: 訂正前は `aws_ssm_parameter.basic_auth` の
+  `value` の差分を指し、「Basic 認証の資格情報は反映の対象外」（Issue #4 により 2026-09-27 訂正）が破れた状態としていた。
+  Basic 認証の資格情報は Terraform の管理外にしたので、R-8 は見ない）。
 - **R-5**（Lambda@Edge の関連付けが外れる）は § Lambda@Edge の非対称性 が述べた
   「認証が外れる」側の壊れ方である。apply 後の `docs/guide/operations.md` の 401 の確認（Issue #178 により 2026-10-18 訂正）（`cognito` では 302 / `/api/` の 401。Issue #20 により 2026-10-05 追記）でも検知できるが、
   `plan-guard.sh` は **apply の前**に止める（Issue #4 により 2026-09-27 訂正）。ロールバックに数分〜十数分かかる要素であるため、

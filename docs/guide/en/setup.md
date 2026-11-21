@@ -172,7 +172,7 @@ If you forget `-backend-config`, `terraform init` asks you interactively for the
 
 On the first run, warnings (WARN) appear because the values of the resources to be created are not fixed at plan time. A warning means "could not be checked", not "no problem". Check the affected places by eye in the plan with `terraform show tfplan` before you apply. `terraform apply tfplan`, which applies the saved plan, applies it without asking for confirmation.
 
-`tfplan` and `tfplan.json` can contain decrypted SSM SecureString values, so delete them after the apply (they are already in `.gitignore`).
+`tfplan` and `tfplan.json` contain the value of the API Gateway API key, so delete them after the apply (they are already in `.gitignore`. The Basic authentication credentials are outside Terraform's management, so they are not included. Corrected by Issue #266 on 2026-11-21).
 
 What is created:
 
@@ -182,7 +182,6 @@ What is created:
 - An S3 bucket (private; readable only through the CloudFront OAC) and the SPA upload
 - A CloudFront distribution (with Lambda@Edge associated to viewer-request)
 - Lambda@Edge and its execution role (**us-east-1**)
-- An SSM parameter (SecureString, **the value is a placeholder**)
 - An SSM parameter (String, the IP allow list. **The initial value is `0.0.0.0/0`, which allows everything**)
 - An SSM parameter (String, the allow list of account IDs of the IAM users that can be registered in the user pool. **The initial value is only the deployment account**. In the deployment region)
 - The API Gateway API key and usage plan (CloudFront adds the key as `x-api-key`, which blocks the direct URL of API Gateway)
@@ -194,9 +193,11 @@ Creating CloudFront takes several minutes to ten-odd minutes.
 
 According to the `auth_mode` you decided in step 3, do one of the following. Skip the other.
 
-### When `auth_mode = "basic"` (the default): put the credentials in
+### When `auth_mode = "basic"` (the default): create the credentials
 
-The **value of the SSM parameter is outside Terraform's management** (`lifecycle { ignore_changes = [value] }`). The placeholder right after the apply is deliberately an invalid value that contains no `:`, and `packages/edge-auth` does not let it through and returns `503`. **The console stays closed until you put in the real value** (fail closed).
+**Terraform does not create** the SSM parameter (SecureString) that holds the credentials. You create it with the command below, after the apply, so that the decrypted value never enters Terraform's state or plan. While the parameter does not exist, `packages/edge-auth` returns `503`. **The console stays closed until you create it** (fail closed). Creating and updating use the same command (`--overwrite` creates the parameter if it does not exist, and updates it if it does).
+
+(Corrected by Issue #266 on 2026-11-21: before this, Terraform created the parameter with a placeholder value and left the value unmanaged with `ignore_changes`. In an environment updated from an earlier version, the parameter stays as it is, the `terraform apply` only removes it from the state, and the credentials do not change. For the update steps, see the section "更新時にやること" (what to do when updating, in Japanese) in `CHANGELOG.md`.)
 
 ```bash
 # Run from the root of the extracted directory

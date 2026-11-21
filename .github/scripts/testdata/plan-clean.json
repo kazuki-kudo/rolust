@@ -186,14 +186,12 @@
       "name": "basic_auth",
       "change": {
         "actions": [
-          "no-op"
+          "forget"
         ],
         "before": {
           "value": "REPLACE_ME"
         },
-        "after": {
-          "value": "REPLACE_ME"
-        },
+        "after": null,
         "after_unknown": {}
       }
     },
