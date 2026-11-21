@@ -1,5 +1,5 @@
 output "console_url" {
-  description = "Rolust 管理画面の URL。auth_mode = \"basic\" で資格情報を投入するまでは 503 が返る。cognito では Cognito のサインイン画面へ飛ぶ。"
+  description = "Rolust 管理画面の URL。auth_mode = \"basic\" で資格情報を作るまでは 503 が返る。cognito では Cognito のサインイン画面へ飛ぶ。"
   value       = "https://${aws_cloudfront_distribution.rolust.domain_name}/"
 }
 
@@ -24,17 +24,17 @@ output "change_request_table_name" {
 }
 
 output "basic_auth_parameter_name" {
-  description = "Basic 認証の資格情報を投入する SSM パラメータ名（us-east-1）。"
-  value       = aws_ssm_parameter.basic_auth.name
+  description = "Basic 認証の資格情報を作る SSM パラメータ名（us-east-1）。Terraform の管理外（state に入らない）。"
+  value       = var.basic_auth_parameter_name
 }
 
 output "set_basic_auth_command" {
-  description = "apply 後に 1 度だけ実行する資格情報の投入コマンド。<user> と <password> を置き換えること。"
+  description = "apply の後に実行する、Basic 認証の資格情報を作るコマンド（`auth_mode = \"basic\"` のとき。作るまで管理画面は 503 で閉じたまま）。更新も同じコマンドで、--overwrite は作成と更新の両方に効く。<user> と <password> を置き換えること。"
   value       = <<-EOT
     export MSYS_NO_PATHCONV=1    # Git Bash で '/' 始まりの名前がパスに変換されるのを防ぐ（macOS / Linux では無害）
     aws ssm put-parameter \
       --region us-east-1 \
-      --name '${aws_ssm_parameter.basic_auth.name}' \
+      --name '${var.basic_auth_parameter_name}' \
       --type SecureString \
       --overwrite \
       --value '<user>:<password>'

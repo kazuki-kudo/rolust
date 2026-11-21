@@ -40,6 +40,8 @@ variable "change_request_table_name" {
 variable "basic_auth_parameter_name" {
   description = <<-EOT
     Basic 認証の資格情報を置く SSM パラメータ名（SecureString）。
+    **このパラメータは Terraform の管理外**で、利用者が `aws ssm put-parameter` で作る（出力 `set_basic_auth_command`。
+    state に復号値を入れないため。Issue #266）。ここで決まるのは名前と、Lambda@Edge の実行ロールが読める ARN だけである。
 
     **既定値から変更する場合は `packages/edge-auth/src/index.ts` の
     `CREDENTIALS_PARAMETER_NAME` も同じ値に書き換えて再ビルドすること。**
