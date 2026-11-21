@@ -48,6 +48,8 @@ There are two ways to get Rolust. **From step 2 on, both paths are the same.** I
 
    ```
 
+If you want an AI coding agent (such as Claude Code) to help with these steps, start it in the extracted directory. It reads `AGENTS.md` at the top of the directory (Claude Code reads it through `CLAUDE.md`), asks you for any value it cannot decide instead of guessing, and follows this guide. It asks for your approval before any operation that writes to AWS, such as `terraform apply`. The instructions are written in Japanese; the agent replies in your language.
+
 ### B. From the source (for developers)
 
 ```bash

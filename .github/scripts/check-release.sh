@@ -12,7 +12,9 @@
 #   2. 環境固有の値・state・ソースが含まれない。Lambda のバンドルに第三者のコード（node_modules）が入っていない
 #      （入ると、ライセンスの表示を載せる対象が増える。SPA の THIRD-PARTY-NOTICES.txt は SPA のビルドだけが作る。Issue #187）
 #   3. plan-guard.sh・target-roles.yaml・LICENSE がリポジトリのものと同一で、plan-guard.sh に実行権限がある
-#   4. スクリプトとテンプレートに CR（CRLF）が無い
+#      AGENTS.md が正本（docs/tarball-agent-instructions.md）と同一で、CLAUDE.md が @AGENTS.md の 1 行である
+#      （Issue #262。利用者向けのエージェント指示書。正本そのものは tarball に入らない）
+#   4. スクリプト・テンプレート・エージェント指示書に CR（CRLF）が無い
 #   5. 展開した infra/ と infra/bootstrap/ が terraform validate を通る
 #   6. CHANGELOG.md があり、本番の版（タグに - を含まない）ではそのタグの節が空でない（Issue #240。
 #      更新の手順書が「CHANGELOG を読む」ことを前提にするので、節が無い版は配らない。prerelease は
@@ -51,7 +53,7 @@ REQUIRED=(
   infra/main.tf infra/.terraform.lock.hcl infra/terraform.tfvars.example infra/backend.hcl.example
   infra/bootstrap/main.tf
   .github/scripts/plan-guard.sh cloudformation/target-roles.yaml README.md README.ja.md LICENSE
-  SECURITY.md CHANGELOG.md
+  SECURITY.md CHANGELOG.md AGENTS.md CLAUDE.md
   docs/guide/README.md docs/guide/setup.md
   docs/guide/en/setup.md docs/guide/en/access-control.md docs/guide/en/cross-account.md
   packages/api/dist/crud/index.js packages/api/dist/diff/index.js packages/api/dist/apply/index.js
@@ -64,7 +66,8 @@ done
 # 2. 含まれてはならないもの
 found="$(find "$DIR" \( -name 'terraform.tfvars' -o -name '*.tfvars' -o -name 'backend.hcl' \
   -o -name '*.tfstate' -o -name '*.tfstate.*' -o -name 'tfplan' -o -name 'tfplan.json' \
-  -o -name '.env' -o -name '.terraform' -o -name '.build' -o -name 'node_modules' \) -print)"
+  -o -name '.env' -o -name '.terraform' -o -name '.build' -o -name 'node_modules' \
+  -o -name 'tarball-agent-instructions.md' \) -print)"
 [[ -z "$found" ]] || ng "含まれてはならないものがある: $(echo "$found" | sed "s|$DIR/||" | tr '\n' ' ')"
 for s in "$DIR"/packages/*/src; do
   [[ -e "$s" ]] && ng "ソースが含まれている: ${s#"$DIR"/}"
@@ -95,8 +98,18 @@ for f in .github/scripts/plan-guard.sh cloudformation/target-roles.yaml LICENSE;
 done
 [[ -x "$DIR/.github/scripts/plan-guard.sh" ]] || ng "plan-guard.sh に実行権限が無い"
 
+# エージェント指示書（Issue #262）。AGENTS.md は正本の複写、CLAUDE.md は @AGENTS.md の 1 行であること。
+# リポジトリ直下の CLAUDE.md（開発者向け）が混ざれば、ここで落ちる。
+if [[ -f "$DIR/AGENTS.md" && -f "$ROOT/docs/tarball-agent-instructions.md" ]]; then
+  cmp -s "$DIR/AGENTS.md" "$ROOT/docs/tarball-agent-instructions.md" \
+    || ng "AGENTS.md が正本（docs/tarball-agent-instructions.md）と違う"
+fi
+if [[ -f "$DIR/CLAUDE.md" ]]; then
+  [[ "$(cat "$DIR/CLAUDE.md")" == "@AGENTS.md" ]] || ng "CLAUDE.md が @AGENTS.md の 1 行ではない"
+fi
+
 # 4. CR の混入
-for f in .github/scripts/plan-guard.sh cloudformation/target-roles.yaml; do
+for f in .github/scripts/plan-guard.sh cloudformation/target-roles.yaml AGENTS.md CLAUDE.md; do
   if [[ -f "$DIR/$f" ]]; then
     n="$(tr -cd '\r' < "$DIR/$f" | wc -c)"
     [[ "$n" -eq 0 ]] || ng "$f に CR（CRLF）がある"

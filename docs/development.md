@@ -13,6 +13,7 @@ Rolust の開発に加わる人向けです。使う人向けの手順書は [do
 | `infra` | Terraform 一式 |
 | `cloudformation` | ターゲットアカウントに Reader・Manager のロールを作る CloudFormation テンプレートと、その権限の不変条件のテスト |
 | `docs/guide` | 利用者向けの手順書。Release の tarball に同梱される |
+| `docs/tarball-agent-instructions.md` | 利用者の AI コーディングエージェント向けの指示書の正本。`build-release.sh` が tarball の直下に `AGENTS.md`（複写）と `CLAUDE.md`（`@AGENTS.md` の 1 行）として入れる。リポジトリ直下の `CLAUDE.md` は開発者向けで、tarball に入らない |
 | `docs/design` | 要件・画面設計・IAM ポリシー設計・CI/CD の設計の正本 |
 | `docs/superpowers` | 2026-09-23 以降の設計書（`specs/`）と実装計画（`plans/`） |
 | `docs/runbooks` | 実 AWS を要する実測（モックでは確かめられない層）の手順書 |

@@ -1,5 +1,6 @@
 # Deployment Strategy — Rolust
 
+> **追記注記**（Issue #262 により 2026-11-19 追記）: 配布物の同梱物に、利用者の AI コーディングエージェント向けの指示書（tarball の直下の `AGENTS.md` と `CLAUDE.md`。正本は `docs/tarball-agent-instructions.md`）を足した（§ 配布物と、更新・削除）。決めきれない値を推測せず利用者に質問させ、`terraform apply` などの前に承認を取らせるため。反映の戦略（in-place）と、更新・削除の手順は変わらない。
 > **追記注記**（Issue #240 により 2026-11-03 追記）: 配布物の同梱物に `CHANGELOG.md` を足した（§ 配布物と、更新・削除）。更新の手順書（`docs/guide/operations.md`）が、更新前に変更履歴を読むことを前提にするため。反映の戦略（in-place）と、更新・削除の手順は変わらない。
 > **追記注記**（Issue #194 により 2026-10-24 追記）: 配布物の同梱物に `SECURITY.md` を足した（§ 配布物と、更新・削除）。README が相対リンクで指すため、同梱しないと tarball 内でリンクが切れる。反映の戦略（in-place）と、更新・削除の手順は変えていない。ID と節番号も変えない。
 > **追記注記**（Issue #178 により 2026-10-18 訂正）: `README.md` の利用者向けの手順を `docs/guide/` に分けたため、README の節・手順を指していた参照を `docs/guide/` の文書に張り替えた（対応は `docs/superpowers/specs/2026-10-18-readme-split-design.md`）。NFR-4・SM-2 の「README と Terraform」という総称は、変えない（Issue #179 により 2026-10-19 訂正: 訂正前は「Issue #179 で扱うので変えていない」とした。README は入口で手順は `docs/guide/` にあるが、総称は今も通じるため）。ID と節番号は変えない。
@@ -103,7 +104,7 @@ Lambda@Edge の更新は他の要素と比べて桁違いに遅く、**ロール
 
 ## 配布物と、更新・削除（Issue #92 により 2026-10-13 追記）
 
-利用者には、Release の tarball（`rolust-vX.Y.Z.tar.gz`。`infra/`・ビルド済みの成果物・`plan-guard.sh`・ターゲット側ロールのテンプレート・README 2 本・`LICENSE`・`SECURITY.md`・`docs/guide/` を、作業ツリーと同じ配置で含む。環境固有の値は含まない）で配る。戦略は in-place のまま変わらない。（Issue #194 により 2026-10-24 追記: 同梱物に `SECURITY.md` を足した。README が相対リンクで指すため、同梱しないと tarball 内でリンクが切れる。`check-release.sh` の必須ファイルにも足した。）（Issue #240 により 2026-11-03 追記: 同梱物に `CHANGELOG.md` を足した。更新の手順書が、更新前に変更履歴を読むことを前提にするため。`check-release.sh` の必須ファイルにも足し、本番の版はその版の節が空でないことを検査する。）
+利用者には、Release の tarball（`rolust-vX.Y.Z.tar.gz`。`infra/`・ビルド済みの成果物・`plan-guard.sh`・ターゲット側ロールのテンプレート・README 2 本・`LICENSE`・`SECURITY.md`・`docs/guide/` を、作業ツリーと同じ配置で含む。環境固有の値は含まない）で配る。戦略は in-place のまま変わらない。（Issue #194 により 2026-10-24 追記: 同梱物に `SECURITY.md` を足した。README が相対リンクで指すため、同梱しないと tarball 内でリンクが切れる。`check-release.sh` の必須ファイルにも足した。）（Issue #240 により 2026-11-03 追記: 同梱物に `CHANGELOG.md` を足した。更新の手順書が、更新前に変更履歴を読むことを前提にするため。`check-release.sh` の必須ファイルにも足し、本番の版はその版の節が空でないことを検査する。）（Issue #262 により 2026-11-19 追記: 同梱物の直下に、エージェント向けの指示書 `AGENTS.md` と `CLAUDE.md` を足した。`check-release.sh` の必須ファイルにも足し、同一性と形を検査する。）
 
 - **更新**: 新しい版を別のディレクトリに展開し、`terraform.tfvars` と `backend.hcl` を持ち越して、plan → plan-guard → apply → invalidation を行う。`backend.hcl` が同じなので state も同じものを使う。ターゲット側のテンプレートが変わった版では、各ターゲットでスタックを更新する。
 - **削除**: ターゲット側のスタックを消し、退避するもの（DynamoDB のデータ、API Gateway のアカウント設定）を退避してから `terraform destroy` する。
