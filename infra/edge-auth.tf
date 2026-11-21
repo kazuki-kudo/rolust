@@ -90,10 +90,12 @@ resource "aws_iam_role_policy" "edge_auth_ssm" {
       {
         # Basic 認証の資格情報は Terraform が管理しない（下の `removed` ブロックの説明）ので、リソースを参照できない。
         # パラメータの ARN は名前とアカウントから決まるので、文字列で組む（旧版の参照と同じ値になり、既存環境に差分は出ない）。
+        # 変数は先頭の `/` を検証していない。`/` が無い名前でも ARN は `parameter/<名前>` になるので、`trimprefix` で揃える
+        # （`parameter${name}` と書くと、`/` の無い名前で `parametername` になり、IAM が拒否して 503 になる）。
         Sid      = "ReadCredentials"
         Effect   = "Allow"
         Action   = "ssm:GetParameter"
-        Resource = "arn:${local.partition}:ssm:us-east-1:${local.account_id}:parameter${var.basic_auth_parameter_name}"
+        Resource = "arn:${local.partition}:ssm:us-east-1:${local.account_id}:parameter/${trimprefix(var.basic_auth_parameter_name, "/")}"
       },
       {
         Sid      = "ReadIpAllowlist"
