@@ -166,6 +166,13 @@ export AWS_PROFILE=<プロファイル> AWS_REGION=<リージョン>
    terraform state list     # 何も出なければ完了
    ```
 
+   **Basic 認証の資格情報（`auth_mode = "basic"` で作った SSM の `/rolust/basic-auth`）は、Terraform が作ったものではないので、`terraform destroy` では消えません**（Issue #266 により 2026-11-21 追記）。不要なら、次のコマンドで削除します（`basic_auth_parameter_name` を変えているときは、その名前）。`auth_mode = "cognito"` で作らなかったときは、飛ばします。
+
+   ```bash
+   export MSYS_NO_PATHCONV=1      # Git Bash で '/rolust/basic-auth' がパスに変換されるのを防ぐ
+   aws ssm delete-parameter --region us-east-1 --name '/rolust/basic-auth'
+   ```
+
    念のため、SSM と DynamoDB に残りが無いかも確かめられます。SSM は 2 つのリージョンにあります（`allowed-account-ids` はデプロイ先のリージョン、認証の設定は us-east-1）。どれも、何も出なければ正常です。
 
    ```bash
@@ -213,7 +220,7 @@ export AWS_PROFILE=<プロファイル> AWS_REGION=<リージョン>
 
 ### アンインストールで変わること
 
-- **残るもの**: IAM のロール・ユーザ、信頼ポリシー（Rolust が足した IAM ユーザ、プレースホルダ `RolustPlaceholder` を含む）、管理対象タグ（既定は `rolust:managed=true`）。**権限は有効なままで、ユーザはロールを引き受け続けられます。** 失効させるには、手順 1 のとおり、アンインストールの前に反映で外します。
+- **残るもの**: Basic 認証の資格情報の SSM パラメータ（手順 4 の削除を行わなかったとき）、IAM のロール・ユーザ、信頼ポリシー（Rolust が足した IAM ユーザ、プレースホルダ `RolustPlaceholder` を含む）、管理対象タグ（既定は `rolust:managed=true`）。**権限は有効なままで、ユーザはロールを引き受け続けられます。** 失効させるには、手順 1 のとおり、アンインストールの前に反映で外します。
 - **失うもの**: 誰にどのロールを許可したかの台帳と、申請の履歴（DynamoDB の 2 テーブル）。信頼ポリシーの変更は CloudTrail の `UpdateAssumeRolePolicy` にも記録されますが、保持期間は限られます。
 - **再導入するとき**: ロールを登録すると、Rolust は信頼ポリシーにいる IAM ユーザを取り込みます（許可リストにあるアカウントのユーザだけ。[managed-roles.md](managed-roles.md)・[users.md](users.md)）。台帳は、IAM 側の状態から再構築できます。ただし、**ターゲットアカウントのスタックは作り直してください。** Rolust の Lambda の実行ロールが新しくなり、ターゲット側の信頼ポリシーの Principal が無効になるためです。
 - **管理対象から外したいロール**は、タグを外します。タグが付いたロールは、同じアカウントに入れた Rolust が管理できる状態のままです。
