@@ -65,7 +65,7 @@ DIFF='(.resource_changes[] | select(.address=="aws_iam_role_policy.diff_iam_read
 DDB='(.resource_changes[] | select(.address=="aws_iam_role_policy.lambda_dynamodb[\"crud\"]"))'
 CF='(.resource_changes[] | select(.address=="aws_cloudfront_distribution.rolust"))'
 PAB='(.resource_changes[] | select(.address=="aws_s3_bucket_public_access_block.web"))'
-SSM='(.resource_changes[] | select(.address=="aws_ssm_parameter.basic_auth"))'
+BASIC='(.resource_changes[] | select(.address=="aws_ssm_parameter.basic_auth"))'
 CRUD='(.resource_changes[] | select(.address=="aws_iam_role_policy.crud_iam_read_tags"))'
 CRUD_TRUST='(.resource_changes[] | select(.address=="aws_iam_role_policy.crud_iam_read_trust"))'
 ROLE_EDGE='(.resource_changes[] | select(.address=="aws_iam_role.edge_auth"))'
@@ -325,9 +325,14 @@ assert "R-7 block_public_acls = false" 1 "R-7" \
   "$PAB.change.after.block_public_acls = false"
 
 echo
-echo "== R-8 SSM の資格情報が Terraform に上書きされる =="
-assert "R-8 value に差分が出る" 1 "R-8" \
-  "$SSM.change.actions = [\"update\"] | $SSM.change.before.value = \"honto-no-shikakujouhou\""
+echo "== R-8 SSM の許可リスト・許可アカウントが Terraform に上書きされる =="
+# Basic 認証の資格情報（aws_ssm_parameter.basic_auth）は Terraform の管理外にした（Issue #266）。
+# 既存環境の plan は removed ブロックにより actions = ["forget"] を出す（Terraform 1.10.5 で実測）。
+# fixture（plan-clean.json）が forget を持つので、変異なしの 1 本目がその緑を押さえている。
+assert "basic_auth を管理から外す plan（forget）は緑（Issue #266）" 0 "赤信号 0 件" '.'
+# removed ブロックを外した状態への警告は足さない（ブロックを残す設計）。update が来ても R-8 の対象ではない。
+assert "basic_auth の update は R-8 の対象外（Issue #266）" 0 "赤信号 0 件" \
+  "$BASIC.change.actions = [\"update\"] | $BASIC.change.before.value = \"x\" | $BASIC.change.after = {\"value\": \"y\"}"
 assert "R-8 許可リストの value に差分が出る" 1 "R-8" \
   "$IPSSM.change.actions = [\"update\"] | $IPSSM.change.before.value = \"203.0.113.0/24\""
 assert "R-8 許可リストの文面は、制限が外れることを述べる" 1 "許可リスト" \

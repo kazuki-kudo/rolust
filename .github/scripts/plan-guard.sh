@@ -543,15 +543,15 @@ cat > "$JQ_PROGRAM" <<'JQ_PROGRAM_EOF'
         //empty
       ),
       (
-        # ---- R-8: SSM の資格情報・IP 許可リスト・許可アカウントが Terraform に上書きされないか ----
+        # ---- R-8: SSM の IP 許可リスト・許可アカウントが Terraform に上書きされないか ----
+        # Basic 認証の資格情報（aws_ssm_parameter.basic_auth）は Terraform の管理外にした（Issue #266 により 2026-11-21 訂正）。
+        # 移行の plan は removed ブロックによる actions = ["forget"] で、ここでは見ない。
         (
-          select(is_addr("aws_ssm_parameter.basic_auth") or is_addr("aws_ssm_parameter.ip_allowlist") or is_addr("aws_ssm_parameter.allowed_account_ids"))
+          select(is_addr("aws_ssm_parameter.ip_allowlist") or is_addr("aws_ssm_parameter.allowed_account_ids"))
           | select($rc.change.actions | index("update"))
           | (if is_addr("aws_ssm_parameter.ip_allowlist")
                then "許可リスト（IP アドレス制限）が初期値の 0.0.0.0/0 で上書きされ、制限が外れる"
-               elif is_addr("aws_ssm_parameter.allowed_account_ids")
-               then "許可アカウントが初期値（デプロイ先のアカウントだけ）で上書きされ、足したアカウントのユーザを登録できなくなる（Issue #139）"
-               else "実運用の資格情報がプレースホルダで上書きされる"
+               else "許可アカウントが初期値（デプロイ先のアカウントだけ）で上書きされ、足したアカウントのユーザを登録できなくなる（Issue #139）"
              end) as $impact
           | if ($unknown.value // false) then
               ["WARN|R-8|\($rc.address)|value が plan 時点で未確定のため上書きの有無を検査できなかった"]
