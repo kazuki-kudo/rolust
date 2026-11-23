@@ -8,6 +8,8 @@
 
 ## 未リリース
 
+## v0.2.2 - 2026-11-23
+
 ### 変更
 
 - Basic 認証の資格情報（SSM の SecureString。既定の名前は `/rolust/basic-auth`）を、Terraform の管理から外した（Issue #266）。`terraform plan` / `refresh` は SecureString を復号して state に平文で書き、plan ファイルにも入れる。`ignore_changes` はこれを止めない。管理から外したので、資格情報は state にも plan にも入らない（入るのは API Gateway の API キーの値だけ。`docs/guide/limitations.md`）。
