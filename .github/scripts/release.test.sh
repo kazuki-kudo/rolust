@@ -127,7 +127,7 @@ expect "CHANGELOG.md が tarball に入っている" 0 bash -c "tar -tzf '$OUT/r
 # AGENTS.md（正本の複写）と CLAUDE.md（@AGENTS.md の 1 行）として入る。正本そのものは入らない。
 expect "AGENTS.md が tarball の直下に入っている" 0 bash -c "tar -tzf '$OUT/rolust-v1.2.3.tar.gz' | grep -q 'rolust-v1.2.3/AGENTS.md\$'"
 expect "AGENTS.md が正本と同一である" 0 bash -c "tar -xzOf '$OUT/rolust-v1.2.3.tar.gz' rolust-v1.2.3/AGENTS.md | cmp -s - '$REPO/docs/tarball-agent-instructions.md'"
-expect "CLAUDE.md が @AGENTS.md の 1 行である" 0 bash -c "[ \"\$(tar -xzOf '$OUT/rolust-v1.2.3.tar.gz' rolust-v1.2.3/CLAUDE.md)\" = '@AGENTS.md' ]"
+expect "CLAUDE.md が @AGENTS.md の LF の 1 行である" 0 bash -c "tar -xzOf '$OUT/rolust-v1.2.3.tar.gz' rolust-v1.2.3/CLAUDE.md | cmp -s - <(printf '@AGENTS.md\n')"
 expect "指示書の正本（docs/tarball-agent-instructions.md）は tarball に入らない" 1 bash -c "tar -tzf '$OUT/rolust-v1.2.3.tar.gz' | grep -q 'docs/tarball-agent-instructions.md'"
 expect "設計の正本（docs/design）は tarball に入らない" 1 bash -c "tar -tzf '$OUT/rolust-v1.2.3.tar.gz' | grep -q 'docs/design/'"
 expect "prerelease のタグも作れる" 0 "$BUILD" v0.0.0-rc.1 "$TMP/out-rc"
@@ -215,6 +215,9 @@ expect "CLAUDE.md が無ければ落ちる" 1 "$CHECK" "$(repack noclaude 'rm CL
 expect "AGENTS.md が正本と違えば落ちる" 1 "$CHECK" "$(repack agentsdiff 'echo x >> AGENTS.md')"
 expect "CLAUDE.md が @AGENTS.md の 1 行でなければ落ちる" 1 "$CHECK" "$(repack claudediff "printf '# dev\n' > CLAUDE.md")"
 expect "CLAUDE.md に CR があれば落ちる" 1 "$CHECK" "$(repack claudecrlf "printf '@AGENTS.md\r\n' > CLAUDE.md")"
+# コマンド置換は末尾の改行を落とすので、「LF の 1 行」を厳密に見ないと、次の 2 つが通ってしまう（Issue #264）。
+expect "CLAUDE.md の末尾に改行が無ければ落ちる" 1 "$CHECK" "$(repack claudenonl "printf '@AGENTS.md' > CLAUDE.md")"
+expect "CLAUDE.md の後ろに空行が続けば落ちる" 1 "$CHECK" "$(repack claudeblank "printf '@AGENTS.md\n\n' > CLAUDE.md")"
 expect "指示書の正本（docs/tarball-agent-instructions.md）が混ざっていれば落ちる" 1 "$CHECK" "$(repack agentssrc 'mkdir -p docs && echo x > docs/tarball-agent-instructions.md')"
 # 正本も同じ内容にして、同一性ではなく CR で落ちることを確かめる。$REPO の正本を書き換えるので、終わったら戻す。
 cp "$REPO/docs/tarball-agent-instructions.md" "$TMP/agents-src.saved"
@@ -231,6 +234,18 @@ else
   expect "plan-guard.sh に実行権限が無ければ落ちる" 1 "$CHECK" "$(repack guardperm 'chmod -x .github/scripts/plan-guard.sh')"
 fi
 expect "CRLF のスクリプトが混ざっていれば落ちる" 1 "$CHECK" "$(repack crlf "printf '#!/usr/bin/env bash\r\necho guard\r\n' > .github/scripts/plan-guard.sh; cp .github/scripts/plan-guard.sh '$REPO/.github/scripts/plan-guard.sh'")"
+
+echo "== check-release.sh の前提（突き合わせる元のリポジトリが古い・不完全なとき） =="
+# 基準が無いと同一性の検査が黙って飛ぶ（Issue #264）。判定できないので、終了コード 2（前提不足）で止める。
+for missing in .github/scripts/plan-guard.sh cloudformation/target-roles.yaml LICENSE docs/tarball-agent-instructions.md; do
+  rm -rf "$TMP/root-partial"
+  mkdir -p "$TMP/root-partial"
+  cp -r "$REPO/." "$TMP/root-partial/"
+  rm "$TMP/root-partial/$missing"
+  expect "突き合わせる元に $missing が無ければ、終了コード 2 で止まる" 2 env ROLUST_REPO_ROOT="$TMP/root-partial" "$CHECK" "$OUT/rolust-v1.2.3.tar.gz"
+done
+mkdir -p "$TMP/root-empty"
+expect "突き合わせる元が空なら、終了コード 2 で止まる" 2 env ROLUST_REPO_ROOT="$TMP/root-empty" "$CHECK" "$OUT/rolust-v1.2.3.tar.gz"
 
 echo
 echo "パス $PASS / 失敗 $FAIL"
