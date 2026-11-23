@@ -195,7 +195,7 @@ According to the `auth_mode` you decided in step 3, do one of the following. Ski
 
 ### When `auth_mode = "basic"` (the default): create the credentials
 
-**Terraform does not create** the SSM parameter (SecureString) that holds the credentials. You create it with the command below, after the apply, so that the decrypted value never enters Terraform's state or plan. While the parameter does not exist, `packages/edge-auth` returns `503`. **The console stays closed until you create it** (fail closed). Creating and updating use the same command (`--overwrite` creates the parameter if it does not exist, and updates it if it does).
+**Terraform does not create** the SSM parameter (SecureString) that holds the credentials. You create it with the command below, after the apply, so that the decrypted value never enters Terraform's state or plan. While the parameter does not exist, `packages/edge-auth` returns `503` to requests that carry credentials (a request without credentials gets `401` before the parameter is read; in a browser, the `401` dialog appears first, and `503` follows after you enter credentials). **The console stays closed until you create it** (fail closed). Creating and updating use the same command (`--overwrite` creates the parameter if it does not exist, and updates it if it does).
 
 (Corrected by Issue #266 on 2026-11-21: before this, Terraform created the parameter with a placeholder value and left the value unmanaged with `ignore_changes`. In an environment updated from an earlier version, the parameter stays as it is, the `terraform apply` only removes it from the state, and the credentials do not change. For the update steps, see the section "更新時にやること" (what to do when updating, in Japanese) in `CHANGELOG.md`.)
 
