@@ -1,5 +1,5 @@
 output "console_url" {
-  description = "Rolust 管理画面の URL。auth_mode = \"basic\" で資格情報を作るまでは 503 が返る。cognito では Cognito のサインイン画面へ飛ぶ。"
+  description = "Rolust 管理画面の URL。auth_mode = \"basic\" で資格情報を作るまでは、資格情報つきのリクエストに 503 が返る（資格情報なしは 401）。cognito では Cognito のサインイン画面へ飛ぶ。"
   value       = "https://${aws_cloudfront_distribution.rolust.domain_name}/"
 }
 
@@ -29,7 +29,7 @@ output "basic_auth_parameter_name" {
 }
 
 output "set_basic_auth_command" {
-  description = "apply の後に実行する、Basic 認証の資格情報を作るコマンド（`auth_mode = \"basic\"` のとき。作るまで管理画面は 503 で閉じたまま）。更新も同じコマンドで、--overwrite は作成と更新の両方に効く。<user> と <password> を置き換えること。"
+  description = "apply の後に実行する、Basic 認証の資格情報を作るコマンド（`auth_mode = \"basic\"` のとき。作るまで管理画面は閉じたまま。資格情報つきのリクエストは 503）。更新も同じコマンドで、--overwrite は作成と更新の両方に効く。<user> と <password> を置き換えること。"
   value       = <<-EOT
     export MSYS_NO_PATHCONV=1    # Git Bash で '/' 始まりの名前がパスに変換されるのを防ぐ（macOS / Linux では無害）
     aws ssm put-parameter \

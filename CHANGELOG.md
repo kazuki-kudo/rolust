@@ -11,7 +11,7 @@
 ### 変更
 
 - Basic 認証の資格情報（SSM の SecureString。既定の名前は `/rolust/basic-auth`）を、Terraform の管理から外した（Issue #266）。`terraform plan` / `refresh` は SecureString を復号して state に平文で書き、plan ファイルにも入れる。`ignore_changes` はこれを止めない。管理から外したので、資格情報は state にも plan にも入らない（入るのは API Gateway の API キーの値だけ。`docs/guide/limitations.md`）。
-  - 新しく入れるときは、`terraform apply` の後に、出力 `set_basic_auth_command` のコマンドで資格情報を作る（作成と更新は同じコマンド）。作るまで、管理画面は `503` で閉じたまま。`auth_mode = "cognito"` では作らなくてよい。
+  - 新しく入れるときは、`terraform apply` の後に、出力 `set_basic_auth_command` のコマンドで資格情報を作る（作成と更新は同じコマンド）。作るまで、管理画面は閉じたまま（資格情報なしは `401`、資格情報つきは `503`）。`auth_mode = "cognito"` では作らなくてよい。
   - `infra/edge-auth.tf` の `removed` ブロックが、旧版で作った環境の state からこのパラメータを外す（パラメータは消えず、資格情報はそのまま使える）。このブロックは消さない。
   - アンインストール（`terraform destroy`）は、このパラメータを消さない。手順書（`docs/guide/operations.md`）に、削除のコマンドを足した。
   - plan-guard の R-8 は、`basic_auth` を見なくなった（IP 許可リスト・許可アカウントは従来どおり）。

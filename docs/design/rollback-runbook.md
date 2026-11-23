@@ -90,7 +90,7 @@ CD の `plan` ジョブが同時に走っていれば、手元の apply はロ�
 | 症状 | 判断 | 初動 |
 |---|---|---|
 | `console_url` が **200 を返す**（Basic 認証のダイアログが出ない） | **即時ロールバック** | FR-6.1 が破れている。管理画面が無防備。下記「認証が外れた場合」へ |
-| `console_url` が 503 を返し続ける | 資格情報の未作成（パラメータが無い。Issue #266 により 2026-11-21 訂正: 訂正前は「未投入」。パラメータは Terraform が作らない）か不正値。**ロールバック不要** | 無ければ `ParameterNotFound` になる。`setup.md` の「認証の準備」のコマンドで作る。あれば、`MSYS_NO_PATHCONV=1 aws ssm get-parameter --region us-east-1 --name /rolust/basic-auth --with-decryption --query Parameter.Value --output text \| grep -c ':'` で値の形式（`user:password`、コロンを含む）を確認する。1 なら形式は正しい（値そのものは画面に出さない）。反映まで最大 5 分（Issue #5 により 2026-09-27 訂正: SSM は `us-east-1` にあり、Git Bash では `/` 始まりの引数がパスに変換されるため、リージョンと `MSYS_NO_PATHCONV=1` を足した） |
+| `console_url` が 503 を返し続ける（資格情報つきのリクエストで。資格情報なしは 401。Issue #266 により 2026-11-23 追記） | 資格情報の未作成（パラメータが無い。Issue #266 により 2026-11-21 訂正: 訂正前は「未投入」。パラメータは Terraform が作らない）か不正値。**ロールバック不要** | 無ければ `ParameterNotFound` になる。`setup.md` の「認証の準備」のコマンドで作る。あれば、`MSYS_NO_PATHCONV=1 aws ssm get-parameter --region us-east-1 --name /rolust/basic-auth --with-decryption --query Parameter.Value --output text \| grep -c ':'` で値の形式（`user:password`、コロンを含む）を確認する。1 なら形式は正しい（値そのものは画面に出さない）。反映まで最大 5 分（Issue #5 により 2026-09-27 訂正: SSM は `us-east-1` にあり、Git Bash では `/` 始まりの引数がパスに変換されるため、リージョンと `MSYS_NO_PATHCONV=1` を足した） |
 | 画面は出るが API が 5xx | Lambda かデータ層。**ロールバック候補** | CloudWatch Logs で crud / diff / apply のどれかを特定 |
 | 反映（apply）が `AccessDenied` で失敗する | IAM のタグ条件。**ロールバック候補になるとは限らない** | まず `terraform output -raw managed_role_tag` で管理対象タグを確認し、`aws iam list-role-tags` で対象ロールの実際のタグと突き合わせる。**タグが剥がされただけならデプロイの問題ではなく、ロールバックしても直らない**（タグ付けは Terraform の外で起きる）。タグ変数を変えた apply が原因なら下記「管理対象タグを戻す場合」 |
 | SPA が 403 / 白画面 | CloudFront キャッシュとアセットの不整合 | 下記「SPA だけを戻す場合」 |
