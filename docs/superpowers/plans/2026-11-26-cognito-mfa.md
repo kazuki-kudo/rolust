@@ -99,7 +99,7 @@ for mode in basic cognito; do for mfa in OFF OPTIONAL ON; do
   echo "--- auth_mode=$mode cognito_mfa=$mfa ---"
   TF_VAR_auth_mode=$mode TF_VAR_cognito_mfa=$mfa terraform graph >/dev/null && echo ok
 done; done
-TF_VAR_cognito_mfa=on terraform plan -input=false -lock=false 2>&1 | grep -c 'cognito_mfa は'
+TF_VAR_pool_id=verify TF_VAR_cognito_mfa=on terraform plan -input=false -lock=false -no-color 2>&1 | grep -c 'cognito_mfa は'
 rm -f backend_override.tf .terraform/terraform.tfstate
 ```
 

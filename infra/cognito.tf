@@ -3,6 +3,7 @@
  *
  * - 機能プランは Lite、Hosted UI は classic（`managed_login_version = 1`）。範囲（初回のパスワード変更と
  *   「忘れた」の再設定）は classic で足り、新規のプールは 10,000 MAU まで無料（2026-10-05 に公式で確認）。
+ * - MFA は `cognito_mfa`（既定 `OFF`）で、認証アプリ（TOTP）を選べる（Issue #271）。SMS・メール OTP は扱わない。
  * - セルフサインアップは無効。ユーザは運用者が `admin-create-user` で作る（`docs/guide/access-control.md`）。
  * - クライアントは公開クライアント（シークレット無し）。認可コード + PKCE を `packages/edge-auth` が行う。
  * - ID トークンの有効期限は 1 日（Cognito の上限）。リフレッシュトークンは `edge-auth` が扱わない。
@@ -27,8 +28,16 @@ resource "aws_cognito_user_pool" "admin" {
   name           = "${var.project_name}-admins"
   user_pool_tier = "LITE"
 
-  mfa_configuration        = "OFF"
+  mfa_configuration        = var.cognito_mfa
   auto_verified_attributes = ["email"]
+
+  # TOTP は `OFF` 以外のときだけ有効にする（`OFF` で書くと provider か API が拒否しうるため）。
+  dynamic "software_token_mfa_configuration" {
+    for_each = var.cognito_mfa == "OFF" ? [] : [1]
+    content {
+      enabled = true
+    }
+  }
 
   admin_create_user_config {
     allow_admin_create_user_only = true

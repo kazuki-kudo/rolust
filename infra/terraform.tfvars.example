@@ -32,6 +32,10 @@ ip_allowlist_parameter_name = "/rolust/ip-allowlist"
 # 認証方式。"basic"（既定。単一の資格情報）または "cognito"（複数の管理者。docs/guide/access-control.md の「認証方式の選択」）。
 # auth_mode = "basic"
 
+# Cognito の MFA（認証アプリの TOTP）。"OFF"（既定）・"OPTIONAL"・"ON"。auth_mode = "cognito" のときだけ効く
+# （docs/guide/access-control.md の「認証方式の選択」の 12）。
+# cognito_mfa = "OFF"
+
 # Rolust が信頼ポリシーを読み書きしてよい IAM ロールを示す**タグ**。
 #
 # - IAM ポリシーは Resource = `role/*` を取り、`aws:ResourceTag/<key> = <value>` の
