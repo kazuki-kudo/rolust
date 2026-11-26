@@ -298,11 +298,11 @@ Task 2 の Step 10 で埋める（✓／✗と 1 行の観測。値・ID・ト�
 
 | # | 確かめること | 結果 |
 |---|---|---|
-| 1 | 既定の `OFF` で既存のプールに差分が出ない（Step 3） | |
-| 2 | `OFF` → `ON` が in-place 更新で、プールとユーザーが残る（Step 5） | |
-| 3 | `ON` にした後、既存のユーザーが Hosted UI で登録を求められる（Step 6・1） | |
-| 4 | 登録後、Hosted UI で TOTP を入力してサインインできる（Step 6・2） | |
-| 5 | MFA を通った ID トークンに `sub`・`cognito:username`・`cognito:groups` がある（Step 6・2） | |
-| 6 | 認証アプリを失くしたユーザーを運用者が復旧できる。手順（Step 7） | |
-| 7 | `OPTIONAL` で、未登録のユーザーが登録を求められずにサインインできる（Step 8） | |
-| 8 | 検証用のプールを破棄し、消えたことを確かめた（Step 9） | |
+| 1 | 既定の `OFF` で既存のプールに差分が出ない（Step 3） | ✓ ブランチの記述（`var.cognito_mfa` と dynamic ブロック）に差し替えても、`main` の記述で作ったプールに対する plan は `No changes.` |
+| 2 | `OFF` → `ON` が in-place 更新で、プールとユーザーが残る（Step 5） | ✓ `OFF` → `ON` は `update in-place`（`1 to change, 0 to destroy`）。apply の後もユーザーは残り、`MfaConfiguration` は `ON`、TOTP は有効 |
+| 3 | `ON` にした後、既存のユーザーが Hosted UI で登録を求められる（Step 6・1） | ✓ パスワードの直後に「Set up authenticator app MFA」の登録画面（`/mfa/register`）が出る。「Show secret key」を押すと、秘密鍵（52 文字）が画面の文字として取れる。この画面から登録でき、そのままサインインが完了した |
+| 4 | 登録後、Hosted UI で TOTP を入力してサインインできる（Step 6・2） | ✓ 新しいセッションでは `/mfa` の画面（「Please enter the code from <デバイス名>」）が出て、TOTP でサインインできた |
+| 5 | MFA を通った ID トークンに `sub`・`cognito:username`・`cognito:groups` がある（Step 6・2） | ✓ `sub`・`cognito:username`・`cognito:groups`（`viewer`）がある |
+| 6 | 認証アプリを失くしたユーザーを運用者が復旧できる。手順（Step 7） | ✓（手順は 1 つだけ）`admin-set-user-mfa-preference … Enabled=false,PreferredMfa=false` では外れない（`ON` のプールで、サインインは `SOFTWARE_TOKEN_MFA` を要求し続ける）。**復旧は `admin-delete-user` → `admin-create-user`（同じユーザー名）→ `admin-set-user-password --permanent` → グループの再割り当て。** 作り直したユーザーは `MFA_SETUP`（再登録）に戻る。副作用: グループが 0 に戻り、`sub` が変わる（ユーザー名は同じ） |
+| 7 | `OPTIONAL` で、未登録のユーザーが登録を求められずにサインインできる（Step 8） | ✓ `OPTIONAL` への変更は in-place。未登録のユーザーは登録を求められずにトークンを受け取る。**加えて、`OPTIONAL` では Hosted UI が登録画面を出さず、`ON` で登録したユーザーも `OPTIONAL` に下げた後は MFA を求められない**（ユーザー側の MFA 設定が有効にならないため）。実質、MFA なしと同じ |
+| 8 | 検証用のプールを破棄し、消えたことを確かめた（Step 9） | ✓ `terraform destroy` で 6 資源を破棄。`describe-user-pool` は `ResourceNotFoundException`、ドメインも残っていない。スクラッチの検証ファイル（秘密鍵・パスワード・トークン）も消した |
