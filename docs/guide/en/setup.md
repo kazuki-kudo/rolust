@@ -119,6 +119,7 @@ Open `terraform.tfvars` in an editor (on Windows you can open it with `code terr
 |---|---|
 | `pool_id` | **Required (there is no default).** The template's `"my-team"` is only an example, so rewrite it to your own identifier (see the note below) |
 | `auth_mode` | The authentication method: `basic` (the default; Basic authentication with a single set of credentials) or `cognito` (several administrators sign in with their own credentials). **Decide before the apply.** If you switch later, every request can return 503 during the switch and for up to 5 minutes after it takes effect (the Lambda@Edge cache). The preparation in step 5 differs by method. The differences are in "Choosing an authentication method" in [access-control.md](access-control.md) |
+| `cognito_mfa` | MFA (an authenticator app) when `auth_mode = "cognito"`: `OFF` (the default), `OPTIONAL`, or `ON`. It has no effect with `basic`. The steps and cautions are in "Choosing an authentication method" in [access-control.md](access-control.md) |
 | `managed_tag_key` / `managed_tag_value` | The tag that marks the roles Rolust can handle. The default is `rolust:managed` = `true` (see the note below) |
 | `region` / `project_name` | The defaults are `ap-northeast-1` / `rolust`. If you do not change them, leave them as they are |
 
