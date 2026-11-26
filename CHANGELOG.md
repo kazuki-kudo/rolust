@@ -8,6 +8,13 @@
 
 ## 未リリース
 
+### 変更
+
+- Cognito の MFA（認証アプリの TOTP）を、変数 `cognito_mfa`（`OFF`（既定）・`OPTIONAL`・`ON`）で選べるようにした（Issue #271。`auth_mode = "cognito"` のときだけ効く）。既定は `OFF` で、既存の環境の plan に差分は出ない。
+  - `ON` にすると、管理者は次のサインインで認証アプリの登録を求められる。**認証アプリを失くしたときの復旧は、ユーザの作り直し**（`admin-delete-user` の後に作り直し、権限のグループを割り当て直す。`sub` が変わる）。運用者が MFA の設定を無効にしても、`ON` のプールではコードを求められ続ける。
+  - `OPTIONAL` は、Hosted UI が登録の画面を出さないので、実質 MFA なしと同じ。MFA を使うなら `ON` を選ぶ。
+  - 機能プランは Lite のまま。SMS とメール OTP（Essentials 以上の機能）は扱わない。手順は `docs/guide/access-control.md` の「認証方式の選択」の 12。
+
 ## v0.2.2 - 2026-11-23
 
 ### 変更
