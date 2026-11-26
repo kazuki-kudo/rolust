@@ -107,7 +107,8 @@ variable "cognito_mfa" {
     （TOTP）だけで、機能プランは Lite のまま。SMS・メール OTP は扱わない。
 
     - `OFF`（既定）: MFA を使わない。既存の環境の plan に差分は出ない。
-    - `OPTIONAL`: 認証アプリを登録したユーザだけが MFA を使う。強制はしない（段階導入のため）。
+    - `OPTIONAL`: Hosted UI（classic）は登録の画面を出さず、`ON` で登録したユーザも MFA を求められなくなる（実測）。
+      実質 MFA なしと同じなので、通常は使わない。
     - `ON`: 全員が必須。登録していないユーザは、次のサインインで認証アプリの登録を求められる。
 
     手順（登録と、認証アプリを失くしたときの復旧）は docs/guide/access-control.md。

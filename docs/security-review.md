@@ -46,7 +46,7 @@ Rolust は他アカウントの IAM ロールの信頼ポリシーを書き換�
 | | 内容 | 理由 |
 |---|---|---|
 | F-6 | CloudFront のアクセスログを取っていない（trivy の `AWS-0010`、MEDIUM） | ログ用バケットが増え、`terraform apply` が作るものが増える。監視を持たない方針と整合する |
-| F-7 | Cognito の MFA が無効（`mfa_configuration = "OFF"`） | 初回サインインの手順が増える。要る人は Terraform で有効にできる（F-3 の文書化で明示） |
+| F-7 | Cognito の MFA が既定で無効（`cognito_mfa = "OFF"`） | 既定は変えない（更新する人の挙動を黙って変えないため）。要る人は `cognito_mfa = "ON"` で認証アプリ（TOTP）の MFA を必須にできる（`docs/guide/access-control.md`。Issue #271 により 2026-11-26 更新。更新前は「Terraform で有効にできる」） |
 | F-8 | ID トークンの有効期限が 1 日（Cognito の上限） | 失効させられないことは `docs/guide/access-control.md` に明記済み。短くすると再サインインが頻発する |
 | F-9 | CloudFront に `minimum_protocol_version` を指定していない | 既定の証明書では指定できない。独自ドメインを持つまで選択肢が無い |
 | F-10 | `pip install "cfn-lint==<版>"` が版の固定までで、hash を固定していない | requirements ファイルを別に持つ必要があり、PyPI の信頼モデルは GitHub Release と異なる。F-5 と同じ手当てでは閉じない |
