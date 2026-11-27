@@ -101,6 +101,27 @@ variable "auth_mode" {
   }
 }
 
+variable "cognito_mfa" {
+  description = <<-EOT
+    Cognito の多要素認証（MFA）。`auth_mode = "cognito"` のときだけ効く（`basic` では無視される）。方式は認証アプリ
+    （TOTP）だけで、機能プランは Lite のまま。SMS・メール OTP は扱わない。
+
+    - `OFF`（既定）: MFA を使わない。既存の環境の plan に差分は出ない。
+    - `OPTIONAL`: Hosted UI（classic）は登録の画面を出さず、`ON` で登録したユーザも MFA を求められなくなる（実測）。
+      実質 MFA なしと同じなので、通常は使わない。
+    - `ON`: 全員が必須。登録していないユーザは、次のサインインで認証アプリの登録を求められる。
+
+    手順（登録と、認証アプリを失くしたときの復旧）は docs/guide/access-control.md。
+  EOT
+  type        = string
+  default     = "OFF"
+
+  validation {
+    condition     = contains(["OFF", "OPTIONAL", "ON"], var.cognito_mfa)
+    error_message = "cognito_mfa は \"OFF\"・\"OPTIONAL\"・\"ON\" のどれかにしてください。"
+  }
+}
+
 variable "auth_mode_parameter_name" {
   description = <<-EOT
     認証方式を置く SSM パラメータ名（String。値は `basic` または `cognito`）。

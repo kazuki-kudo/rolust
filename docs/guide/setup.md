@@ -119,6 +119,7 @@ cp terraform.tfvars.example terraform.tfvars
 |---|---|
 | `pool_id` | **必須です（既定値がありません）。** 雛形の `"my-team"` は例なので、自分の識別子に書き換えます（下の注記） |
 | `auth_mode` | 認証方式。`basic`（既定。単一の資格情報の Basic 認証）か、`cognito`（複数の管理者が、それぞれの資格情報でサインインする）。**apply の前に決めます。** 後から切り替えると、切り替えの間と、反映後の最大 5 分（Lambda@Edge のキャッシュ）は、どのアクセスも 503 になりえます。手順 5 の準備が方式ごとに違います。違いは [access-control.md](access-control.md) の「認証方式の選択」にあります |
+| `cognito_mfa` | `auth_mode = "cognito"` のときの MFA（認証アプリ）。`OFF`（既定）・`OPTIONAL`・`ON`。`basic` では効きません。手順と注意は [access-control.md](access-control.md) の「認証方式の選択」にあります |
 | `managed_tag_key` / `managed_tag_value` | Rolust が扱えるロールを示すタグ。既定値は `rolust:managed` = `true`（下の注記） |
 | `region` / `project_name` | 既定値は `ap-northeast-1` / `rolust`。変えないなら、そのままで構いません |
 
