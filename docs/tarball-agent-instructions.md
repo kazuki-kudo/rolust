@@ -32,10 +32,13 @@
 | `pool_id`（既存のデプロイの更新なら、既にある値と同じにする） | `docs/guide/setup.md` の手順 3 |
 | 認証方式 `auth_mode`（`basic` か `cognito`） | `docs/guide/setup.md` の手順 3・5、`docs/guide/access-control.md` の「認証方式の選択」 |
 | 管理対象のタグ `managed_tag_key` / `managed_tag_value`、`region` / `project_name` を既定のままにするか | `docs/guide/setup.md` の手順 3、`docs/guide/managed-roles.md` |
+| `auth_mode = "cognito"` のとき: 管理者のユーザ名とメールアドレス、割り当てるグループ（`viewer` / `editor` / `applier`）。パスワードは聞かない（一時パスワードはコマンドが作り、登録したメールアドレスに Cognito が送る） | `docs/guide/setup.md` の手順 5、`docs/guide/access-control.md` の「管理者の権限」 |
 | ターゲットアカウント（別アカウントのロールを管理するか）の有無 | `docs/guide/cross-account.md` |
 | ユーザプールに登録できるアカウント ID の許可リスト | `docs/guide/users.md` の「ユーザプールに登録できるのは、許可したアカウントの IAMユーザだけ」 |
 | IP アドレス制限をするか | `docs/guide/access-control.md` の「IP アドレス制限（任意）」 |
 | 更新のとき: 今の版と更新先の版、`terraform.tfvars` と `backend.hcl` の控えがあるか | `docs/guide/operations.md` の「新しいバージョンに更新する（経路 A）」と「設定ファイルを紛失したとき」 |
+
+表の「節」は日本語版の見出しの名前で書いてあります。英語版（`docs/guide/en/`）は見出しが英語なので、名前では引けません。`setup.md` の手順は、番号（手順 2・3・5）で引きます。番号の無い節は、日本語版と同じ位置の見出しを引きます（英語版と日本語版は、見出しの階層の列が一致します）。
 
 ## 承認を取る操作
 
@@ -46,7 +49,7 @@ AWS の資源や設定、Terraform の state、利用者のファイルを変え
 - IAM・CloudFormation への書き込み（ロールの作成・タグ付け、ターゲット側のスタックの作成など）
 - Cognito のユーザとグループの作成・変更・削除（`aws cognito-idp admin-*`）
 - CloudFront の invalidation、S3 のバケットやオブジェクトの削除
-- ファイルの削除
+- ファイルの削除（例外は、あなたが `terraform plan` で自分で作った `tfplan` と `tfplan.json` を apply の後に消すことだけです。この 2 つは承認を取らずに消します。ほかのファイルは、承認を取ります）
 
 `terraform apply` の前には、`terraform plan` の結果を利用者に見せます。`plan-guard.sh` が赤信号を出したら、そこで止まり、先へ進まずに利用者に報告します。警告（WARN）は、該当の箇所を示して利用者の判断を仰ぎます（「問題なし」と読み替えない）。
 
@@ -57,7 +60,7 @@ AWS の資源や設定、Terraform の state、利用者のファイルを変え
 - 管理画面のパスワード（Basic 認証の資格情報、Cognito の管理者の永続パスワード）は、利用者が決めて、利用者が自分で投入・設定します。あなたは生成せず、会話で受け取りません。投入のコマンドを示すだけにします（`docs/guide/setup.md` の手順 5、`docs/guide/access-control.md` の「認証方式の選択」）。Cognito の一時パスワードは、手順書のコマンドが乱数から作って画面に出さないので、そのコマンドを使います。
 - `terraform.tfvars` に資格情報を書きません。
 - アカウント ID・バケット名・資格情報を、応答の文面に書き写しません。コミットもしません。このディレクトリを公開のリポジトリに置かないよう、利用者に伝えます。
-- `tfplan` と `tfplan.json` は、apply の後に消します（SSM の SecureString の復号値を含みうるため）。
+- `tfplan` と `tfplan.json` は、apply の後に消します（SSM の SecureString の復号値を含みうるため）。あなたが作ったこの 2 つに限り、承認は要りません（「承認を取る操作」の「ファイルの削除」の例外）。
 - `terraform.tfvars` と `backend.hcl` の控えを、展開先の外に取るよう利用者に勧めます（更新のときに持ち越します。`docs/guide/setup.md` の手順 3 の注記）。
 
 ## 環境の落とし穴

@@ -12,8 +12,9 @@
 #   2. 環境固有の値・state・ソースが含まれない。Lambda のバンドルに第三者のコード（node_modules）が入っていない
 #      （入ると、ライセンスの表示を載せる対象が増える。SPA の THIRD-PARTY-NOTICES.txt は SPA のビルドだけが作る。Issue #187）
 #   3. plan-guard.sh・target-roles.yaml・LICENSE がリポジトリのものと同一で、plan-guard.sh に実行権限がある
-#      AGENTS.md が正本（docs/tarball-agent-instructions.md）と同一で、CLAUDE.md が @AGENTS.md の 1 行である
+#      AGENTS.md が正本（docs/tarball-agent-instructions.md）と同一で、CLAUDE.md が @AGENTS.md の LF の 1 行である
 #      （Issue #262。利用者向けのエージェント指示書。正本そのものは tarball に入らない）
+#      突き合わせる元のリポジトリにこれらの基準が無ければ、検査を飛ばさず終了コード 2 で止める（Issue #264）
 #   4. スクリプト・テンプレート・エージェント指示書に CR（CRLF）が無い
 #   5. 展開した infra/ と infra/bootstrap/ が terraform validate を通る
 #   6. CHANGELOG.md があり、本番の版（タグに - を含まない）ではそのタグの節が空でない（Issue #240。
@@ -34,6 +35,16 @@ if [[ -z "$TARBALL" || ! -f "$TARBALL" ]]; then
   exit 2
 fi
 ROOT="${ROLUST_REPO_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+
+# 突き合わせる元（リポジトリ）に、同一性の検査の基準が揃っていること。無いと、その検査が何も言わずに飛び、
+# 「違うものを通す」。tarball が間違っているのではなく、判定できない状態なので、終了コード 2（前提不足）で止める
+# （ROLUST_REPO_ROOT が古い木・不完全な木を指すときに起きる。Issue #264）。
+for f in .github/scripts/plan-guard.sh cloudformation/target-roles.yaml LICENSE docs/tarball-agent-instructions.md; do
+  if [[ ! -f "$ROOT/$f" ]]; then
+    echo "突き合わせる元に $f が無い（ROLUST_REPO_ROOT=$ROOT）。同一性を判定できない" >&2
+    exit 2
+  fi
+done
 
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
@@ -92,7 +103,8 @@ done
 
 # 3. リポジトリと同一であること、実行権限
 for f in .github/scripts/plan-guard.sh cloudformation/target-roles.yaml LICENSE; do
-  if [[ -f "$DIR/$f" && -f "$ROOT/$f" ]]; then
+  # tarball 側が無いときは、1 の必須のファイルの検査が落とす。
+  if [[ -f "$DIR/$f" ]]; then
     cmp -s "$DIR/$f" "$ROOT/$f" || ng "$f がリポジトリのものと違う"
   fi
 done
@@ -100,12 +112,14 @@ done
 
 # エージェント指示書（Issue #262）。AGENTS.md は正本の複写、CLAUDE.md は @AGENTS.md の 1 行であること。
 # リポジトリ直下の CLAUDE.md（開発者向け）が混ざれば、ここで落ちる。
-if [[ -f "$DIR/AGENTS.md" && -f "$ROOT/docs/tarball-agent-instructions.md" ]]; then
+if [[ -f "$DIR/AGENTS.md" ]]; then
   cmp -s "$DIR/AGENTS.md" "$ROOT/docs/tarball-agent-instructions.md" \
     || ng "AGENTS.md が正本（docs/tarball-agent-instructions.md）と違う"
 fi
+# コマンド置換は末尾の改行を落とすので、$(cat) の比較では「改行の無い @AGENTS.md」「後ろに空行が続くもの」も通る。
+# バイト列で比べる（Issue #264）。
 if [[ -f "$DIR/CLAUDE.md" ]]; then
-  [[ "$(cat "$DIR/CLAUDE.md")" == "@AGENTS.md" ]] || ng "CLAUDE.md が @AGENTS.md の 1 行ではない"
+  printf '@AGENTS.md\n' | cmp -s - "$DIR/CLAUDE.md" || ng "CLAUDE.md が @AGENTS.md の LF の 1 行ではない"
 fi
 
 # 4. CR の混入
